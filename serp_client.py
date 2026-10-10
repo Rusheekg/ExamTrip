@@ -27,10 +27,16 @@ from serpapi import GoogleSearch
 # Config
 # ---------------------------------------------------------------------------
 
-load_dotenv()  # reads SERPAPI_API_KEY from .env if present
+load_dotenv(Path(__file__).resolve().parent / ".env")
 
-CACHE_DIR = Path(".serp_cache")
+CACHE_DIR = Path(__file__).resolve().parent / ".serp_cache"
 CACHE_TTL_DAYS: int = 7
+
+
+def has_api_key() -> bool:
+    """Return True when SERPAPI_API_KEY is set to a real value."""
+    key = os.getenv("SERPAPI_API_KEY", "")
+    return bool(key) and key != "PASTE_KEY_HERE"
 
 
 # ---------------------------------------------------------------------------

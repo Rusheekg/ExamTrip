@@ -51,11 +51,21 @@ class StayResult(TypedDict):
     route: RouteInfo | None
 
 
+class FoodResult(TypedDict):
+    title: str
+    rating: float | None
+    reviews: int | None
+    price: str | None        # e.g. "$", "$$", None
+    address: str
+    distance_m: int          # straight-line distance from the centre
+
+
 class TripPlan(TypedDict):
     centre: CentreInfo
     stays: list[StayResult]       # ranked by drive_s then price
     station_route: RouteInfo | None
     arrive_by_accepted: bool      # True if the timed request succeeded
+    food: list[FoodResult]        # up to 5 rated restaurants near the centre
 
 
 # ---------------------------------------------------------------------------
@@ -295,6 +305,54 @@ def search_stays(
 
 
 # ---------------------------------------------------------------------------
+# Food search
+# ---------------------------------------------------------------------------
+
+def search_food(centre: CentreInfo, top_n: int = 5) -> list[FoodResult]:
+    """Return up to *top_n* rated restaurants near *centre*, sorted by
+    straight-line distance from the centre.
+
+    Uses ``engine=google_maps`` with a ``ll`` (location/zoom) parameter so
+    the results are centred on the exam venue.
+    """
+    c_lat = centre["latitude"]
+    c_lon = centre["longitude"]
+    params = {
+        "engine": "google_maps",
+        "type": "search",
+        "q": "budget restaurants",
+        "ll": f"@{c_lat},{c_lon},16z",
+        "hl": "en",
+    }
+    results = serp_search(params)
+    local_results = results.get("local_results") or []
+
+    food: list[FoodResult] = []
+    for item in local_results:
+        if item.get("rating") is None:
+            continue
+        gps = item.get("gps_coordinates") or {}
+        r_lat = gps.get("latitude")
+        r_lon = gps.get("longitude")
+        dist_m = (
+            int(haversine(c_lat, c_lon, r_lat, r_lon) * 1000)
+            if r_lat is not None and r_lon is not None
+            else 0
+        )
+        food.append(FoodResult(
+            title=item.get("title", ""),
+            rating=item.get("rating"),
+            reviews=item.get("reviews"),
+            price=item.get("price"),
+            address=item.get("address", ""),
+            distance_m=dist_m,
+        ))
+
+    food.sort(key=lambda x: x["distance_m"])
+    return food[:top_n]
+
+
+# ---------------------------------------------------------------------------
 # Main planner
 # ---------------------------------------------------------------------------
 
@@ -366,11 +424,15 @@ def plan_trip(
 
     stays.sort(key=_rank_key)
 
+    # --- food near the centre ---
+    food = search_food(centre)
+
     return TripPlan(
         centre=centre,
         stays=stays,
         station_route=station_route,
         arrive_by_accepted=bool(arrive_by_accepted),
+        food=food,
     )
 
 
@@ -426,3 +488,11 @@ if __name__ == "__main__":
         print(f"  Leave by : {sr['leave_by']}")
     else:
         print("Station route: not available.")
+
+    print()
+    print("Places to eat near the centre")
+    print("-" * 50)
+    for f in plan["food"]:
+        price_str = f" ({f['price']})" if f.get("price") else ""
+        print(f"  {f['title']:<35} {f['rating']} stars{price_str}")
+        print(f"    {f['address']}")
