@@ -4,72 +4,250 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>ExamTrip – Plan Your Exam Journey</title>
+  <meta name="description" content="Find budget stays near your exam centre, plan your route, and arrive on time. Powered by live data from SerpApi.">
 
-  <!-- Inter font -->
+  <!-- Inline SVG favicon: map-pin with graduation cap -->
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path d='M16 2C10.48 2 6 6.48 6 12c0 7 10 18 10 18S26 19 26 12c0-5.52-4.48-10-10-10z' fill='%232563EB'/><circle cx='16' cy='12' r='4' fill='white'/><path d='M10 8l6-3 6 3-6 3z' fill='%23F59E0B'/></svg>">
+
+  <!-- Fonts: Plus Jakarta Sans (headings) + Inter (body) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 
-  <!-- Tailwind (utility helpers, not replacing our own CSS) -->
+  <!-- Tailwind (sr-only utility) -->
   <script src="https://cdn.tailwindcss.com"></script>
 
   <!-- Leaflet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin></script>
 
-  <!-- Lucide icons -->
-  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
-
-  <!-- Our styles -->
+  <!-- Styles -->
   <link rel="stylesheet" href="styles.css">
+
+  <!-- Spinner keyframe (needed for loading SVG) -->
+  <style>
+    @keyframes spin { to { transform: rotate(360deg); } }
+  </style>
 </head>
 <body>
 
-<!-- ── Nav ── -->
+<!-- ══════════════════════════════════════════════════════════
+     NAV
+══════════════════════════════════════════════════════════ -->
 <nav id="navbar" role="navigation" aria-label="Main navigation">
   <div class="nav-inner">
-    <a class="nav-logo" href="#">
-      <!-- map-pin + graduation-cap composed inline -->
-      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
-      </svg>
-      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#A5F3FC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-left:-4px">
-        <path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>
+    <!-- Logo: inline SVG map-pin + graduation cap -->
+    <a class="nav-logo" href="#" aria-label="ExamTrip home">
+      <svg width="26" height="26" viewBox="0 0 32 32" fill="none" aria-hidden="true">
+        <title>ExamTrip logo</title>
+        <path d="M16 2C10.48 2 6 6.48 6 12c0 7 10 18 10 18S26 19 26 12c0-5.52-4.48-10-10-10z" fill="#60A5FA"/>
+        <circle cx="16" cy="12" r="3.5" fill="white"/>
+        <path d="M10 8.5l6-3 6 3-6 3z" fill="#F59E0B"/>
+        <path d="M10 8.5v3c0 1.5 2.7 2.7 6 2.7s6-1.2 6-2.7v-3" stroke="#F59E0B" stroke-width="1" fill="none"/>
       </svg>
       ExamTrip
     </a>
     <ul class="nav-links" role="list">
       <li><a href="#search">Search</a></li>
+      <li><a href="#how-it-works">How it works</a></li>
       <li><a href="#results">Results</a></li>
     </ul>
-    <button class="btn-plan" data-scroll="search" aria-label="Plan my trip – scroll to search">Plan My Trip</button>
+    <button class="btn-nav" data-scroll="search" aria-label="Plan my trip – scroll to search form">
+      Plan My Trip
+    </button>
   </div>
 </nav>
 
-<!-- ── Hero ── -->
+<!-- ══════════════════════════════════════════════════════════
+     HERO
+══════════════════════════════════════════════════════════ -->
 <section id="hero" aria-labelledby="hero-headline">
-  <h1 class="hero-headline" id="hero-headline">Your Exam Journey, Planned Smarter.</h1>
-  <p class="hero-sub">Find your stay. Plan your route. Reach your exam on time.</p>
-  <div class="hero-chips" role="list">
-    <div class="hero-chip" role="listitem">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
-      Budget stays near your centre
+
+  <!-- Faint dotted map-grid SVG background -->
+  <svg aria-hidden="true" style="position:absolute;top:0;left:0;width:100%;height:100%;pointer-events:none;opacity:.06" preserveAspectRatio="xMidYMid slice">
+    <defs>
+      <pattern id="grid" width="40" height="40" patternUnits="userSpaceOnUse">
+        <circle cx="0" cy="0" r="1.5" fill="white"/>
+        <circle cx="40" cy="0" r="1.5" fill="white"/>
+        <circle cx="0" cy="40" r="1.5" fill="white"/>
+        <circle cx="40" cy="40" r="1.5" fill="white"/>
+        <circle cx="20" cy="20" r="1" fill="white"/>
+      </pattern>
+    </defs>
+    <rect width="100%" height="100%" fill="url(#grid)"/>
+  </svg>
+
+  <div class="hero-inner">
+    <!-- Left column -->
+    <div class="hero-left">
+      <div class="hero-eyebrow">Smarter exam travel</div>
+      <h1 class="hero-headline" id="hero-headline">
+        Your Exam Journey,<br><em>Planned Smarter.</em>
+      </h1>
+      <p class="hero-sub">Find your stay. Plan your route. Reach your exam on time.</p>
+
+      <div class="hero-chips" role="list">
+        <div class="hero-chip" role="listitem">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+          Budget stays near your centre
+        </div>
+        <div class="hero-chip" role="listitem">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+          Leave-by time with a 30-minute buffer
+        </div>
+        <div class="hero-chip" role="listitem">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          Exam-day checklist
+        </div>
+      </div>
+
+      <button class="btn-hero" data-scroll="search" aria-label="Scroll to search form">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
+        Plan My Exam Trip
+      </button>
     </div>
-    <div class="hero-chip" role="listitem">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-      Leave-by time with a 30-minute buffer
-    </div>
-    <div class="hero-chip" role="listitem">
-      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-      Exam-day checklist
+
+    <!-- Right column: original SVG illustration -->
+    <div class="hero-illustration" aria-label="Illustration showing a student, hotel, exam centre, and a route between them">
+      <svg viewBox="0 0 420 320" xmlns="http://www.w3.org/2000/svg" role="img" aria-labelledby="hero-illo-title">
+        <title id="hero-illo-title">Student with backpack at a hotel, connected by a dashed route to an exam centre building, with a clock showing leave-by time</title>
+
+        <!-- Sky gradient background -->
+        <defs>
+          <linearGradient id="skyGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stop-color="#1e3a5f" stop-opacity="0"/>
+            <stop offset="100%" stop-color="#1e3a5f" stop-opacity=".18"/>
+          </linearGradient>
+        </defs>
+        <rect width="420" height="320" fill="url(#skyGrad)" rx="12"/>
+
+        <!-- ── Hotel building (left) ── -->
+        <g transform="translate(20, 80)">
+          <!-- Building body -->
+          <rect x="0" y="30" width="100" height="100" rx="4" fill="#2563EB" opacity=".9"/>
+          <!-- Roof edge -->
+          <rect x="-4" y="26" width="108" height="8" rx="2" fill="#1d4ed8"/>
+          <!-- Windows row 1 -->
+          <rect x="10" y="44" width="16" height="14" rx="2" fill="#93c5fd"/>
+          <rect x="32" y="44" width="16" height="14" rx="2" fill="#93c5fd"/>
+          <rect x="54" y="44" width="16" height="14" rx="2" fill="#bfdbfe"/>
+          <rect x="76" y="44" width="16" height="14" rx="2" fill="#93c5fd"/>
+          <!-- Windows row 2 -->
+          <rect x="10" y="66" width="16" height="14" rx="2" fill="#bfdbfe"/>
+          <rect x="32" y="66" width="16" height="14" rx="2" fill="#93c5fd"/>
+          <rect x="54" y="66" width="16" height="14" rx="2" fill="#93c5fd"/>
+          <rect x="76" y="66" width="16" height="14" rx="2" fill="#bfdbfe"/>
+          <!-- Windows row 3 -->
+          <rect x="10" y="88" width="16" height="14" rx="2" fill="#93c5fd"/>
+          <rect x="32" y="88" width="16" height="14" rx="2" fill="#bfdbfe"/>
+          <rect x="54" y="88" width="16" height="14" rx="2" fill="#93c5fd"/>
+          <rect x="76" y="88" width="16" height="14" rx="2" fill="#93c5fd"/>
+          <!-- Door -->
+          <rect x="36" y="112" width="28" height="18" rx="2" fill="#172B4D"/>
+          <!-- Hotel sign -->
+          <rect x="30" y="10" width="40" height="14" rx="3" fill="#F59E0B"/>
+          <text x="50" y="21" text-anchor="middle" font-size="8" font-weight="700" fill="#172B4D" font-family="sans-serif">HOTEL</text>
+          <!-- Ground -->
+          <rect x="-6" y="130" width="112" height="4" rx="2" fill="rgba(255,255,255,.15)"/>
+          <!-- Start pin -->
+          <g transform="translate(50, -16)">
+            <path d="M0 0C-5-5-10-14-10-18a10 10 0 0 1 20 0c0 4-5 13-10 18z" fill="#2563EB" stroke="#fff" stroke-width="1.5"/>
+            <circle cx="0" cy="-18" r="4" fill="white"/>
+          </g>
+        </g>
+
+        <!-- ── Dashed saffron route line ── -->
+        <line x1="130" y1="192" x2="290" y2="192"
+          stroke="#F59E0B" stroke-width="3" stroke-dasharray="8 6"
+          stroke-linecap="round"/>
+        <!-- Arrow tip -->
+        <polygon points="290,192 278,186 278,198" fill="#F59E0B"/>
+        <!-- Drive label -->
+        <rect x="180" y="176" width="60" height="18" rx="9" fill="#F59E0B"/>
+        <text x="210" y="188" text-anchor="middle" font-size="9" font-weight="700" fill="#172B4D" font-family="sans-serif">DRIVE →</text>
+
+        <!-- ── Exam centre building (right) ── -->
+        <g transform="translate(290, 60)">
+          <!-- Pillars / facade -->
+          <rect x="0" y="50" width="110" height="100" rx="3" fill="#e2e8f0"/>
+          <rect x="-4" y="44" width="118" height="10" rx="2" fill="#cbd5e1"/>
+          <rect x="8" y="54" width="14" height="96" rx="2" fill="#f1f5f9"/>
+          <rect x="28" y="54" width="14" height="96" rx="2" fill="#f1f5f9"/>
+          <rect x="48" y="54" width="14" height="96" rx="2" fill="#f1f5f9"/>
+          <rect x="68" y="54" width="14" height="96" rx="2" fill="#f1f5f9"/>
+          <rect x="88" y="54" width="14" height="96" rx="2" fill="#f1f5f9"/>
+          <!-- Pediment (triangle top) -->
+          <polygon points="-6,44 55,4 116,44" fill="#cbd5e1"/>
+          <polygon points="2,44 55,10 108,44" fill="#e2e8f0"/>
+          <!-- Door -->
+          <rect x="38" y="118" width="34" height="32" rx="2" fill="#172B4D"/>
+          <rect x="53" y="118" width="2" height="32" fill="rgba(255,255,255,.15)"/>
+          <!-- Sign -->
+          <rect x="16" y="70" width="78" height="16" rx="2" fill="rgba(37,99,235,.15)"/>
+          <text x="55" y="81" text-anchor="middle" font-size="7.5" font-weight="700" fill="#172B4D" font-family="sans-serif">EXAM CENTRE</text>
+          <!-- Ground -->
+          <rect x="-6" y="150" width="122" height="4" rx="2" fill="rgba(0,0,0,.08)"/>
+          <!-- End pin -->
+          <g transform="translate(55, -16)">
+            <path d="M0 0C-5-5-10-14-10-18a10 10 0 0 1 20 0c0 4-5 13-10 18z" fill="#16A34A" stroke="#fff" stroke-width="1.5"/>
+            <circle cx="0" cy="-18" r="4" fill="white"/>
+          </g>
+        </g>
+
+        <!-- ── Student figure (between hotel and route) ── -->
+        <g transform="translate(148, 115)">
+          <!-- Body -->
+          <rect x="4" y="24" width="20" height="28" rx="4" fill="#2563EB"/>
+          <!-- Head -->
+          <circle cx="14" cy="14" r="10" fill="#fcd34d"/>
+          <!-- Backpack -->
+          <rect x="20" y="28" width="12" height="18" rx="3" fill="#172B4D"/>
+          <rect x="22" y="30" width="8" height="12" rx="2" fill="#F59E0B"/>
+          <!-- Legs -->
+          <rect x="6" y="50" width="6" height="16" rx="3" fill="#1d4ed8"/>
+          <rect x="16" y="50" width="6" height="16" rx="3" fill="#1d4ed8"/>
+          <!-- Arms -->
+          <rect x="-4" y="28" width="10" height="5" rx="2.5" fill="#2563EB"/>
+          <!-- Graduation cap -->
+          <ellipse cx="14" cy="5" rx="11" ry="3" fill="#172B4D"/>
+          <rect x="8" y="1" width="12" height="5" rx="1" fill="#172B4D"/>
+          <line x1="20" y1="4" x2="24" y2="10" stroke="#F59E0B" stroke-width="1.5"/>
+          <circle cx="24" cy="11" r="2" fill="#F59E0B"/>
+        </g>
+
+        <!-- ── Clock (top right) ── -->
+        <g transform="translate(330, 10)">
+          <circle cx="30" cy="30" r="28" fill="#fff" opacity=".95" stroke="#F59E0B" stroke-width="2.5"/>
+          <circle cx="30" cy="30" r="2.5" fill="#172B4D"/>
+          <!-- Hour hand pointing ~7:30 -->
+          <line x1="30" y1="30" x2="20" y2="42" stroke="#172B4D" stroke-width="2.5" stroke-linecap="round"/>
+          <!-- Minute hand pointing to 6 -->
+          <line x1="30" y1="30" x2="30" y2="14" stroke="#2563EB" stroke-width="2" stroke-linecap="round"/>
+          <!-- Tick marks -->
+          <line x1="30" y1="4" x2="30" y2="8" stroke="#94a3b8" stroke-width="1.5"/>
+          <line x1="30" y1="52" x2="30" y2="56" stroke="#94a3b8" stroke-width="1.5"/>
+          <line x1="4" y1="30" x2="8" y2="30" stroke="#94a3b8" stroke-width="1.5"/>
+          <line x1="52" y1="30" x2="56" y2="30" stroke="#94a3b8" stroke-width="1.5"/>
+          <!-- Leave by label -->
+          <text x="30" y="42" text-anchor="middle" font-size="6" font-weight="700" fill="#F59E0B" font-family="sans-serif">LEAVE BY</text>
+        </g>
+
+        <!-- Ground line -->
+        <line x1="14" y1="218" x2="406" y2="218" stroke="rgba(255,255,255,.1)" stroke-width="1.5"/>
+      </svg>
     </div>
   </div>
 </section>
 
-<!-- ── Search card ── -->
+<!-- ══════════════════════════════════════════════════════════
+     SEARCH CARD
+══════════════════════════════════════════════════════════ -->
 <section id="search" aria-labelledby="search-heading">
   <div class="search-card">
-    <h2 id="search-heading">Find My Exam Trip</h2>
+    <div class="search-card-title">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      Find My Exam Trip
+    </div>
     <form id="search-form" novalidate>
       <div class="form-grid">
         <div class="field span2">
@@ -93,19 +271,17 @@
         </div>
         <div class="field">
           <label for="f-time">Reporting time (24-hour)</label>
-          <input id="f-time" type="time" name="reporting_time" placeholder="08:30" required>
+          <input id="f-time" type="time" name="reporting_time" required>
           <span class="field-error" id="e-time" role="alert"></span>
         </div>
         <div class="field">
           <label for="f-people">Travellers</label>
-          <input id="f-people" type="number" name="people"
-            min="1" max="20" placeholder="1" required>
+          <input id="f-people" type="number" name="people" min="1" max="20" placeholder="1" required>
           <span class="field-error" id="e-people" role="alert"></span>
         </div>
         <div class="field">
           <label for="f-budget">Max budget per night (₹)</label>
-          <input id="f-budget" type="number" name="max_budget"
-            min="1" placeholder="2500" required>
+          <input id="f-budget" type="number" name="max_budget" min="1" placeholder="2500" required>
           <span class="field-error" id="e-budget" role="alert"></span>
         </div>
       </div>
@@ -113,25 +289,117 @@
       <div id="search-alert" class="alert" role="alert" aria-live="assertive"></div>
 
       <button id="search-btn" class="btn-search" type="submit">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
         Find My Exam Trip
       </button>
     </form>
   </div>
 </section>
 
-<!-- ── Results ── -->
-<section id="results" aria-labelledby="results-heading" aria-live="polite">
+<!-- ══════════════════════════════════════════════════════════
+     HOW IT WORKS
+══════════════════════════════════════════════════════════ -->
+<section id="how-it-works" aria-labelledby="hiw-heading">
+  <p class="hiw-heading" id="hiw-heading">How ExamTrip works</p>
+  <div class="hiw-steps">
+
+    <!-- Step 1 -->
+    <div class="hiw-step">
+      <div class="hiw-icon" aria-hidden="true">
+        <!-- Original SVG: form with fields -->
+        <svg viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="8" y="8" width="56" height="56" rx="10" fill="#EFF6FF"/>
+          <rect x="18" y="22" width="36" height="5" rx="2.5" fill="#BFDBFE"/>
+          <rect x="18" y="32" width="24" height="5" rx="2.5" fill="#93C5FD"/>
+          <rect x="18" y="42" width="30" height="5" rx="2.5" fill="#BFDBFE"/>
+          <rect x="50" y="22" width="4" height="5" rx="2" fill="#2563EB"/>
+          <circle cx="52" cy="54" r="8" fill="#2563EB"/>
+          <path d="M48 54l3 3 5-5" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="hiw-num">1</div>
+      <div class="hiw-title">Enter your exam details</div>
+      <p class="hiw-desc">Centre address, city, date, reporting time, and budget.</p>
+    </div>
+
+    <!-- Step 2 -->
+    <div class="hiw-step">
+      <div class="hiw-icon" aria-hidden="true">
+        <!-- Original SVG: map with pins and route -->
+        <svg viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="8" y="8" width="56" height="56" rx="10" fill="#F0FDF4"/>
+          <!-- Map outline -->
+          <rect x="14" y="16" width="44" height="32" rx="4" fill="#DCFCE7" stroke="#86EFAC" stroke-width="1.5"/>
+          <!-- Route dashes -->
+          <line x1="22" y1="38" x2="52" y2="26" stroke="#F59E0B" stroke-width="2.5" stroke-dasharray="4 3"/>
+          <!-- Stay pin -->
+          <path d="M22 38C20 35 17 30 17 27.5a5 5 0 1 1 10 0c0 2.5-3 7-5 10.5z" fill="#2563EB"/>
+          <circle cx="22" cy="27.5" r="2.5" fill="white"/>
+          <!-- Centre pin -->
+          <path d="M52 26C50 23 47 18 47 15.5a5 5 0 1 1 10 0c0 2.5-3 7-5 10.5z" fill="#16A34A"/>
+          <circle cx="52" cy="15.5" r="2.5" fill="white"/>
+          <!-- Cards below -->
+          <rect x="14" y="52" width="20" height="10" rx="3" fill="#2563EB"/>
+          <rect x="38" y="52" width="20" height="10" rx="3" fill="#16A34A"/>
+        </svg>
+      </div>
+      <div class="hiw-num">2</div>
+      <div class="hiw-title">Compare stays &amp; routes</div>
+      <p class="hiw-desc">Live hotel data, drive times, and leave-by times from Google.</p>
+    </div>
+
+    <!-- Step 3 -->
+    <div class="hiw-step">
+      <div class="hiw-icon" aria-hidden="true">
+        <!-- Original SVG: checklist with timeline dots -->
+        <svg viewBox="0 0 72 72" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="8" y="8" width="56" height="56" rx="10" fill="#FFFBEB"/>
+          <!-- Vertical dashed timeline line -->
+          <line x1="24" y1="20" x2="24" y2="54" stroke="#F59E0B" stroke-width="2" stroke-dasharray="4 3"/>
+          <!-- Timeline dots and rows -->
+          <circle cx="24" cy="24" r="4" fill="#F59E0B"/>
+          <rect x="32" y="21" width="22" height="5" rx="2.5" fill="#FDE68A"/>
+          <circle cx="24" cy="36" r="4" fill="#F59E0B"/>
+          <rect x="32" y="33" width="16" height="5" rx="2.5" fill="#FDE68A"/>
+          <circle cx="24" cy="48" r="4" fill="#16A34A"/>
+          <rect x="32" y="45" width="26" height="5" rx="2.5" fill="#BBF7D0"/>
+          <!-- Check on last dot -->
+          <path d="M21 48l2.5 2.5 4-4" stroke="white" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </div>
+      <div class="hiw-num">3</div>
+      <div class="hiw-title">Follow your exam-day plan</div>
+      <p class="hiw-desc">A timed checklist built from your leave-by time keeps you on track.</p>
+    </div>
+
+  </div>
+</section>
+
+<!-- ══════════════════════════════════════════════════════════
+     RESULTS
+══════════════════════════════════════════════════════════ -->
+<section id="results" aria-labelledby="results-heading" aria-live="polite" style="margin-top:48px;">
   <h2 id="results-heading" class="sr-only">Trip Results</h2>
 
-  <!-- Summary bar -->
-  <div id="summary-bar" class="summary-bar" aria-label="Trip summary"></div>
+  <!-- Trip Pass -->
+  <div id="trip-pass" class="trip-pass" aria-label="Trip summary card"></div>
+
+  <!-- Journey Strip -->
+  <div id="journey-strip" class="journey-strip" aria-label="Journey timeline"></div>
+
+  <!-- Print + Metric cards row -->
+  <div style="display:flex;align-items:center;justify-content:flex-end;margin-bottom:6px;">
+    <button id="print-btn" class="btn-print" aria-label="Print trip plan">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+      Print my trip plan
+    </button>
+  </div>
 
   <!-- Metric cards -->
   <div class="metrics" role="list">
     <div class="metric-card" role="listitem">
       <div class="metric-label">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M12 6v6l4 2"/></svg>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
         Best pick price
       </div>
       <div class="metric-value" id="m-price">—</div>
@@ -139,23 +407,23 @@
     </div>
     <div class="metric-card" role="listitem">
       <div class="metric-label">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
-        Drive Time
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#2563EB" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+        Drive time
       </div>
       <div class="metric-value" id="m-drive">—</div>
       <div class="metric-sub" id="m-drive-sub"></div>
     </div>
     <div class="metric-card" role="listitem">
       <div class="metric-label">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
-        Leave By
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Leave by
       </div>
       <div class="metric-value" id="m-leave">—</div>
       <div class="metric-sub" id="m-leave-sub"></div>
     </div>
     <div class="metric-card" role="listitem">
       <div class="metric-label">
-        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#F59E0B" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v2"/></svg>
         Estimated trip cost
       </div>
       <div class="metric-value" id="m-trip">—</div>
@@ -165,23 +433,66 @@
 
   <!-- Tabs -->
   <div class="tabs-nav" role="tablist" aria-label="Results sections">
-    <button class="tab-btn active" role="tab" aria-selected="true"  aria-controls="tab-overview"    data-tab="overview">Overview</button>
-    <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-stays"       data-tab="stays">Stays</button>
-    <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-route"       data-tab="route">Route</button>
-    <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-food"        data-tab="food">Food</button>
-    <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-essentials"  data-tab="essentials">Essentials</button>
-    <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-budget"      data-tab="budget">Budget</button>
-    <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-checklist"   data-tab="checklist">Checklist</button>
+    <button class="tab-btn active" role="tab" aria-selected="true"  aria-controls="tab-overview"   data-tab="overview">Overview</button>
+    <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-stays"      data-tab="stays">Stays</button>
+    <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-route"      data-tab="route">Route</button>
+    <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-food"       data-tab="food">Food</button>
+    <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-essentials" data-tab="essentials">Essentials</button>
+    <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-budget"     data-tab="budget">Budget</button>
+    <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-checklist"  data-tab="checklist">Checklist</button>
   </div>
 
-  <!-- Overview -->
+  <!-- ── Overview ── -->
   <div id="tab-overview" class="tab-panel active" role="tabpanel" aria-label="Overview">
+    <div class="tab-header">
+      <div class="tab-header-icon" aria-hidden="true">
+        <!-- Original: building with map pin above it -->
+        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4" y="16" width="40" height="30" rx="4" fill="#EFF6FF"/>
+          <rect x="10" y="22" width="8" height="7" rx="1.5" fill="#93C5FD"/>
+          <rect x="22" y="22" width="8" height="7" rx="1.5" fill="#BFDBFE"/>
+          <rect x="34" y="22" width="8" height="7" rx="1.5" fill="#93C5FD"/>
+          <rect x="18" y="33" width="12" height="13" rx="2" fill="#172B4D"/>
+          <path d="M24 2C20.13 2 17 5.13 17 9c0 5 7 13 7 13s7-8 7-13c0-3.87-3.13-7-7-7z" fill="#2563EB"/>
+          <circle cx="24" cy="9" r="3" fill="white"/>
+        </svg>
+      </div>
+      <div class="tab-header-text">
+        <h3>Overview</h3>
+        <p>Your best pick hotel and a map of all stays near the centre.</p>
+      </div>
+    </div>
     <div id="best-pick-card" class="best-card" aria-label="Best pick hotel"></div>
-    <div id="map" aria-label="Map showing exam centre and nearby stays"></div>
+    <div class="map-wrap">
+      <div id="map" aria-label="Map showing exam centre and nearby stays"></div>
+      <div class="map-legend" aria-label="Map legend">
+        <span class="legend-dot legend-centre">Centre</span>
+        <span class="legend-dot legend-best">Best pick</span>
+        <span class="legend-dot legend-stay">Other stays</span>
+      </div>
+    </div>
   </div>
 
-  <!-- Stays -->
-  <div id="tab-stays" class="tab-panel" role="tabpanel" aria-label="Stays">
+  <!-- ── Stays ── -->
+  <div id="tab-stays" class="tab-panel" role="tabpanel" aria-label="Stay options">
+    <div class="tab-header">
+      <div class="tab-header-icon" aria-hidden="true">
+        <!-- Original: hotel bed icon -->
+        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4" y="20" width="40" height="22" rx="4" fill="#EFF6FF"/>
+          <rect x="4" y="28" width="40" height="14" rx="4" fill="#BFDBFE"/>
+          <rect x="8" y="22" width="14" height="10" rx="3" fill="#93C5FD"/>
+          <rect x="26" y="22" width="14" height="10" rx="3" fill="#93C5FD"/>
+          <rect x="6" y="38" width="6" height="6" rx="2" fill="#172B4D"/>
+          <rect x="36" y="38" width="6" height="6" rx="2" fill="#172B4D"/>
+          <rect x="4" y="14" width="8" height="8" rx="2" fill="#2563EB"/>
+        </svg>
+      </div>
+      <div class="tab-header-text">
+        <h3>Stays</h3>
+        <p>All hotels within your budget, sorted and filtered from live data.</p>
+      </div>
+    </div>
     <div class="stays-controls">
       <div style="display:flex;align-items:center;gap:6px;">
         <label for="sort-by">Sort by:</label>
@@ -193,60 +504,142 @@
       </div>
       <div style="display:flex;align-items:center;gap:6px;">
         <label for="filter-price">Max price (₹):</label>
-        <input id="filter-price" type="number" min="0" placeholder="All" aria-label="Filter by maximum price per night" style="width:100px;">
+        <input id="filter-price" type="number" min="0" placeholder="All"
+          aria-label="Filter by maximum price per night" style="width:100px;">
       </div>
     </div>
     <div id="stays-grid" class="stays-grid" aria-label="Stay options"></div>
   </div>
 
-  <!-- Route -->
-  <div id="tab-route" class="tab-panel" role="tabpanel" aria-label="Route">
+  <!-- ── Route ── -->
+  <div id="tab-route" class="tab-panel" role="tabpanel" aria-label="Route information">
+    <div class="tab-header">
+      <div class="tab-header-icon" aria-hidden="true">
+        <!-- Original: road with dashed centre line -->
+        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4" y="8" width="40" height="32" rx="6" fill="#FEF3C7"/>
+          <path d="M8 40l8-32h16l8 32" fill="#FDE68A" stroke="#FDE68A" stroke-width="1"/>
+          <line x1="24" y1="12" x2="24" y2="18" stroke="#F59E0B" stroke-width="2" stroke-linecap="round"/>
+          <line x1="24" y1="22" x2="24" y2="28" stroke="#F59E0B" stroke-width="2" stroke-linecap="round"/>
+          <line x1="24" y1="32" x2="24" y2="38" stroke="#F59E0B" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="12" cy="24" r="5" fill="#2563EB"/>
+          <path d="M10 24l1.5 1.5 3-3" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="36" cy="24" r="5" fill="#16A34A"/>
+          <path d="M34 24l1.5 1.5 3-3" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="tab-header-text">
+        <h3>Route</h3>
+        <p>Drive times and leave-by times from the railway station and your best pick.</p>
+      </div>
+    </div>
     <div id="route-content"></div>
   </div>
 
-  <!-- Food -->
-  <div id="tab-food" class="tab-panel" role="tabpanel" aria-label="Food">
+  <!-- ── Food ── -->
+  <div id="tab-food" class="tab-panel" role="tabpanel" aria-label="Food nearby">
+    <div class="tab-header">
+      <div class="tab-header-icon" aria-hidden="true">
+        <!-- Original: fork and plate -->
+        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <circle cx="24" cy="24" r="18" fill="#FEF3C7"/>
+          <circle cx="24" cy="24" r="12" fill="#FDE68A"/>
+          <line x1="34" y1="8" x2="34" y2="40" stroke="#172B4D" stroke-width="2.5" stroke-linecap="round"/>
+          <path d="M30 8v10c0 2.2 1.8 4 4 4" stroke="#172B4D" stroke-width="2" stroke-linecap="round"/>
+          <line x1="18" y1="8" x2="18" y2="16" stroke="#172B4D" stroke-width="2" stroke-linecap="round"/>
+          <line x1="22" y1="8" x2="22" y2="16" stroke="#172B4D" stroke-width="2" stroke-linecap="round"/>
+          <path d="M18 16c0 2.2 1.8 4 4 4v-4-12" stroke="#172B4D" stroke-width="2" stroke-linecap="round"/>
+          <line x1="20" y1="20" x2="20" y2="40" stroke="#172B4D" stroke-width="2.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="tab-header-text">
+        <h3>Food</h3>
+        <p>Rated budget restaurants near the exam centre.</p>
+      </div>
+    </div>
     <div class="list-section">
-      <h3>Nearby Restaurants</h3>
+      <div class="list-section-head">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#172B4D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2"/><path d="M7 2v20"/><path d="M21 15V2a5 5 0 0 0-5 5v6c0 1.1.9 2 2 2h3zm0 0v7"/></svg>
+        <h3>Nearby Restaurants</h3>
+      </div>
       <div id="food-list" class="place-list"></div>
     </div>
   </div>
 
-  <!-- Essentials -->
-  <div id="tab-essentials" class="tab-panel" role="tabpanel" aria-label="Essentials">
+  <!-- ── Essentials ── -->
+  <div id="tab-essentials" class="tab-panel" role="tabpanel" aria-label="Essential services nearby">
+    <div class="tab-header">
+      <div class="tab-header-icon" aria-hidden="true">
+        <!-- Original: first-aid cross + printer -->
+        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4" y="4" width="19" height="19" rx="4" fill="#EFF6FF"/>
+          <rect x="11" y="9" width="5" height="9" rx="2.5" fill="#2563EB"/>
+          <rect x="8.5" y="11.5" width="10" height="5" rx="2.5" fill="#2563EB"/>
+          <rect x="25" y="4" width="19" height="19" rx="4" fill="#F0FDF4"/>
+          <rect x="29" y="8" width="11" height="2" rx="1" fill="#86EFAC"/>
+          <rect x="29" y="12" width="8" height="2" rx="1" fill="#86EFAC"/>
+          <rect x="29" y="16" width="10" height="2" rx="1" fill="#86EFAC"/>
+          <rect x="4" y="25" width="40" height="19" rx="4" fill="#FFFBEB"/>
+          <rect x="10" y="29" width="28" height="3" rx="1.5" fill="#FDE68A"/>
+          <rect x="10" y="35" width="20" height="3" rx="1.5" fill="#FDE68A"/>
+          <circle cx="38" cy="36.5" r="4" fill="#F59E0B"/>
+          <path d="M36 36.5l1.5 1.5 3-3" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="tab-header-text">
+        <h3>Essentials</h3>
+        <p>Print shops and pharmacies near the exam centre.</p>
+      </div>
+    </div>
     <div class="list-section">
-      <h3 style="display:flex;align-items:center;gap:6px;">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
-        Print Shops
-      </h3>
+      <div class="list-section-head">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#172B4D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        <h3>Print Shops</h3>
+      </div>
       <div id="print-list" class="place-list"></div>
     </div>
     <div class="list-section">
-      <h3 style="display:flex;align-items:center;gap:6px;">
-        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 2a2 2 0 0 0-2 2v5H4a2 2 0 0 0-2 2v3c0 1.1.9 2 2 2h3v3a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2v-3h3a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2h-5V4a2 2 0 0 0-2-2h-2z"/></svg>
-        Pharmacies
-      </h3>
+      <div class="list-section-head">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#172B4D" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 2a2 2 0 0 0-2 2v5H4a2 2 0 0 0-2 2v3c0 1.1.9 2 2 2h3v3a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2v-3h3a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2h-5V4a2 2 0 0 0-2-2h-2z"/></svg>
+        <h3>Pharmacies</h3>
+      </div>
       <div id="pharmacy-list" class="place-list"></div>
     </div>
   </div>
 
-  <!-- Budget -->
+  <!-- ── Budget ── -->
   <div id="tab-budget" class="tab-panel" role="tabpanel" aria-label="Budget planner">
+    <div class="tab-header">
+      <div class="tab-header-icon" aria-hidden="true">
+        <!-- Original: wallet / budget bars -->
+        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4" y="12" width="40" height="28" rx="5" fill="#EFF6FF" stroke="#BFDBFE" stroke-width="1.5"/>
+          <rect x="28" y="20" width="12" height="12" rx="3" fill="#2563EB"/>
+          <circle cx="34" cy="26" r="3" fill="white" opacity=".8"/>
+          <path d="M4 20h40" stroke="#BFDBFE" stroke-width="1.5"/>
+          <rect x="8" y="8" width="16" height="6" rx="2" fill="#93C5FD"/>
+        </svg>
+      </div>
+      <div class="tab-header-text">
+        <h3>Budget</h3>
+        <p>Enter your estimates — the total updates instantly and drives the trip cost metric.</p>
+      </div>
+    </div>
     <div class="budget-grid">
       <div class="field">
         <label for="b-nights">Nights</label>
         <input id="b-nights" type="number" min="1" max="30" value="1" aria-label="Number of nights">
       </div>
       <div class="field">
-        <label for="b-food">Food per person/day (₹) <em style="font-style:italic;font-weight:400;color:var(--muted)">(est.)</em></label>
-        <input id="b-food" type="number" min="0" value="300" aria-label="Estimated food cost per person per day in rupees">
+        <label for="b-food">Food per person/day (₹) <em style="font-style:italic;font-weight:400">(est.)</em></label>
+        <input id="b-food" type="number" min="0" value="300" aria-label="Estimated food per person per day in rupees">
       </div>
       <div class="field">
-        <label for="b-transport">Local transport/day (₹) <em style="font-style:italic;font-weight:400;color:var(--muted)">(est.)</em></label>
-        <input id="b-transport" type="number" min="0" value="200" aria-label="Estimated local transport cost per day in rupees">
+        <label for="b-transport">Local transport/day (₹) <em style="font-style:italic;font-weight:400">(est.)</em></label>
+        <input id="b-transport" type="number" min="0" value="200" aria-label="Estimated local transport per day in rupees">
       </div>
       <div class="field">
-        <label for="b-other">Other expenses (₹) <em style="font-style:italic;font-weight:400;color:var(--muted)">(est.)</em></label>
+        <label for="b-other">Other expenses (₹) <em style="font-style:italic;font-weight:400">(est.)</em></label>
         <input id="b-other" type="number" min="0" value="0" aria-label="Other estimated expenses in rupees">
       </div>
       <div class="field">
@@ -254,31 +647,17 @@
         <input id="b-maxbudget" type="number" min="0" aria-label="Your maximum total budget in rupees">
       </div>
     </div>
-
     <div class="budget-breakdown">
       <h3>Breakdown</h3>
-      <div class="budget-row">
-        <span id="b-stay-label">Stay</span>
-        <span id="b-stay-cost">₹0</span>
-      </div>
-      <div class="budget-row">
-        <span id="b-food-label">Food</span>
-        <span id="b-food-cost">₹0</span>
-      </div>
-      <div class="budget-row">
-        <span id="b-trans-label">Local transport</span>
-        <span id="b-trans-cost">₹0</span>
-      </div>
+      <div class="budget-row"><span id="b-stay-label">Stay</span><span id="b-stay-cost">₹0</span></div>
+      <div class="budget-row"><span id="b-food-label">Food</span><span id="b-food-cost">₹0</span></div>
+      <div class="budget-row"><span id="b-trans-label">Local transport</span><span id="b-trans-cost">₹0</span></div>
       <div class="budget-row">
         <span>Other expenses <em style="font-size:11px;color:var(--muted)">(est.)</em></span>
         <span id="b-other-cost">₹0</span>
       </div>
-      <div class="budget-total" aria-live="polite">
-        <span>Total</span>
-        <span id="b-total">₹0</span>
-      </div>
+      <div class="budget-total" aria-live="polite"><span>Total</span><span id="b-total">₹0</span></div>
       <div class="budget-per" id="b-per-person" aria-live="polite"></div>
-
       <div class="progress-wrap" aria-label="Budget usage">
         <div class="progress-label">
           <span id="b-progress-label-used"></span>
@@ -292,19 +671,43 @@
     </div>
   </div>
 
-  <!-- Checklist -->
+  <!-- ── Checklist ── -->
   <div id="tab-checklist" class="tab-panel" role="tabpanel" aria-label="Exam day checklist">
+    <div class="tab-header">
+      <div class="tab-header-icon" aria-hidden="true">
+        <!-- Original: clipboard with checkmarks and dashed timeline -->
+        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="8" y="8" width="32" height="36" rx="5" fill="#FFFBEB" stroke="#FDE68A" stroke-width="1.5"/>
+          <rect x="16" y="4" width="16" height="8" rx="3" fill="#FDE68A"/>
+          <line x1="16" y1="20" x2="36" y2="20" stroke="#FDE68A" stroke-width="2" stroke-linecap="round"/>
+          <line x1="16" y1="28" x2="30" y2="28" stroke="#FDE68A" stroke-width="2" stroke-linecap="round"/>
+          <line x1="16" y1="36" x2="34" y2="36" stroke="#FDE68A" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="12" cy="20" r="3" fill="#F59E0B"/>
+          <path d="M10.5 20l1.5 1.5 3-3" stroke="white" stroke-width="1.2" stroke-linecap="round"/>
+          <circle cx="12" cy="28" r="3" fill="#F59E0B"/>
+          <circle cx="12" cy="36" r="3" fill="#16A34A"/>
+          <path d="M10.5 36l1.5 1.5 3-3" stroke="white" stroke-width="1.2" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="tab-header-text">
+        <h3>Checklist</h3>
+        <p>A timed exam-day plan built from your leave-by time. Ticks are saved.</p>
+      </div>
+    </div>
     <div id="checklist-content"></div>
   </div>
 
 </section>
 
-<!-- ── Footer ── -->
+<!-- ══════════════════════════════════════════════════════════
+     FOOTER
+══════════════════════════════════════════════════════════ -->
 <footer>
-  <p>Live data from SerpApi: Google Maps, Google Hotels, and Google Maps Directions.</p>
-  <p style="margin-top:6px;">
-    &copy; <script>document.write(new Date().getFullYear())</script> ExamTrip
-  </p>
+  <div class="footer-inner">
+    <div class="footer-tagline">Plan smarter. Spend wisely. Arrive on time.</div>
+    <p>Live data from SerpApi: Google Maps, Google Hotels, and Google Maps Directions.</p>
+    <p style="margin-top:4px">&copy; <script>document.write(new Date().getFullYear())</script> ExamTrip</p>
+  </div>
 </footer>
 
 <!-- App script -->
