@@ -437,6 +437,39 @@ def plan_trip(
 
 
 # ---------------------------------------------------------------------------
+# Best-pick selection
+# ---------------------------------------------------------------------------
+
+_DRIVE_WINDOW_S = 5 * 60   # 5 minutes in seconds
+_MIN_RATING     = 3.5
+
+
+def pick_best_stay(stays: list[StayResult]) -> StayResult:
+    """Choose the best stay from a ranked list.
+
+    Algorithm
+    ---------
+    1. Find the fastest drive time among all stays with a route.
+    2. Keep every stay whose drive time is within 5 minutes of that fastest.
+    3. Among those, prefer stays rated >= 3.5; if none qualify, use all of them.
+    4. Return the cheapest of the resulting group.
+
+    Falls back to ``stays[0]`` if no stay has a route.
+    """
+    with_route = [s for s in stays if s.get("route")]
+    if not with_route:
+        return stays[0]
+
+    fastest_s = min(s["route"]["drive_s"] for s in with_route)  # type: ignore[index]
+    window = [s for s in with_route if s["route"]["drive_s"] <= fastest_s + _DRIVE_WINDOW_S]  # type: ignore[index]
+
+    rated = [s for s in window if (s["rating"] or 0) >= _MIN_RATING]
+    candidates = rated if rated else window
+
+    return min(candidates, key=lambda s: s["price_inr"])
+
+
+# ---------------------------------------------------------------------------
 # CLI / smoke-test
 # ---------------------------------------------------------------------------
 

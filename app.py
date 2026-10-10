@@ -78,7 +78,7 @@ if submitted:
         st.stop()
 
     # --- call plan_trip inside a spinner ---
-    from examtrip import plan_trip
+    from examtrip import plan_trip, pick_best_stay
 
     reporting_str = reporting_time.strftime("%H:%M")
 
@@ -121,15 +121,17 @@ if submitted:
     st.markdown(f"**{c['title']}**  \n{c['address']}")
 
     # ── 2. Best pick ──────────────────────────────────────────────────────────
-    best = stays[0]
+    best = pick_best_stay(stays)
     r = best.get("route")
     st.header("Best pick")
     with st.container(border=True):
         st.markdown(f"### {best['name']}")
-        col_a, col_b, col_c = st.columns(3)
+        col_a, col_b, col_c, col_d = st.columns(4)
         col_a.metric("Price / night", f"₹{best['price_inr']:,.0f}")
         col_b.metric("Drive to centre", r["drive_fmt"] if r else "—")
         col_c.metric("Leave by", r["leave_by"] if r else "—")
+        col_d.metric("Rating", f"{best['rating']:.1f}" if best["rating"] is not None else "—")
+        st.caption("Chosen for a short drive, a rating of 3.5 or more, and the lowest price.")
 
     # ── 3. All stays table ────────────────────────────────────────────────────
     st.header("All shortlisted stays")
@@ -142,12 +144,12 @@ if submitted:
         rows.append({
             "Name": s["name"],
             "INR / night": f"₹{s['price_inr']:,.0f}",
-            "Rating": s["rating"] if s["rating"] is not None else "—",
+            "Rating": f"{s['rating']:.1f}" if s["rating"] is not None else "—",
             "Drive": ro["drive_fmt"] if ro else "—",
             "Walk": (ro["walk_fmt"] or "—") if ro else "—",
             "Dist (km)": f"{ro['distance_m'] / 1000:.1f}" if ro else "—",
             "Leave by": ro["leave_by"] if ro else "—",
-            "Link": s["link"] or "",
+            "Link": s["link"] or "—",
         })
 
     df = pd.DataFrame(rows)
@@ -181,21 +183,61 @@ if submitted:
         for f in food:
             food_rows.append({
                 "Name": f["title"],
-                "Rating": f["rating"] if f["rating"] is not None else "—",
+                "Rating": f"{f['rating']:.1f}" if f["rating"] is not None else "—",
                 "Price level": f["price"] or "—",
                 "Dist (m)": f["distance_m"],
                 "Address": f["address"],
             })
+        food_df = pd.DataFrame(food_rows)
+        # Drop "Price level" if every value is missing
+        if food_df["Price level"].eq("—").all():
+            food_df = food_df.drop(columns=["Price level"])
         st.dataframe(
-            pd.DataFrame(food_rows),
+            food_df,
             hide_index=True,
             use_container_width=True,
         )
     else:
         st.info("No restaurant data found near the centre.")
 
+    # ── 6. Exam-day essentials ────────────────────────────────────────────────
+    st.header("Exam-day essentials")
+
+    def _essentials_table(places: list, label: str) -> None:
+        """Render one essentials table at full width, or a short message if empty."""
+        st.subheader(label)
+        if not places:
+            st.info(f"No {label.lower()} found nearby.")
+            return
+        ess_rows = []
+        for p in places:
+            ess_rows.append({
+                "Name":          p["title"] or "—",
+                "Rating":        f"{p['rating']:.1f}" if p["rating"] is not None else "—",
+                "Distance (m)":  int(p["distance_m"]),
+                "Open status":   p["open_state"] or "—",
+            })
+        st.dataframe(
+            pd.DataFrame(ess_rows),
+            hide_index=True,
+            use_container_width=True,
+            column_config={
+                "Name": st.column_config.TextColumn("Name", width="large"),
+            },
+        )
+
+    try:
+        from essentials import find_essentials
+        c_lat = plan["centre"]["latitude"]
+        c_lon = plan["centre"]["longitude"]
+        ess = find_essentials(c_lat, c_lon)
+        _essentials_table(ess["print_shops"], "Print and photocopy shops")
+        _essentials_table(ess["pharmacies"], "Pharmacies")
+    except Exception as exc:
+        st.warning(f"Could not load essentials data: {exc}")
+
     # ── caption ───────────────────────────────────────────────────────────────
     st.caption(
-        "Live data from SerpApi: Google Maps, Google Hotels, "
-        "and Google Maps Directions."
+        "Live data from SerpApi: Google Maps (places, directions, and essentials), "
+        "Google Hotels, and Google Maps Directions."
     )
