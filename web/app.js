@@ -13,6 +13,8 @@ const LS_CHECKS = 'et_checklist';
 let _data   = null;
 let _map    = null;
 let _checks = {};
+let _geoLat = null;   // set when user grants geolocation
+let _geoLng = null;
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 const $ = (id) => document.getElementById(id);
@@ -160,13 +162,18 @@ function validateField(input, msgEl, rules) {
 }
 
 function validateForm() {
-  const today = new Date().toISOString().slice(0, 10);
+  // "tomorrow" in IST — compute as YYYY-MM-DD string for simple comparison
+  const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+  const tomorrowIST = new Date(nowIST);
+  tomorrowIST.setDate(tomorrowIST.getDate() + 1);
+  const tomorrow = tomorrowIST.toISOString().slice(0, 10);
+
   let ok = true;
   ok = validateField($('f-centre'), $('e-centre'), [[v => v.length > 0, 'Enter the exam centre address.']]) && ok;
   ok = validateField($('f-city'),   $('e-city'),   [[v => v.length > 0, 'Enter the city name.']]) && ok;
   ok = validateField($('f-date'),   $('e-date'),   [
     [v => /^\d{4}-\d{2}-\d{2}$/.test(v), 'Enter a valid date.'],
-    [v => v >= today, 'Exam date must be today or in the future.'],
+    [v => v >= tomorrow, 'Choose an exam date from tomorrow onwards.'],
   ]) && ok;
   ok = validateField($('f-time'),   $('e-time'),   [[v => /^\d{2}:\d{2}$/.test(v), 'Enter time as HH:MM (24-hour).']]) && ok;
   ok = validateField($('f-budget'), $('e-budget'), [[v => /^\d+$/.test(v) && Number(v) > 0, 'Enter a positive budget amount.']]) && ok;
@@ -254,7 +261,7 @@ function renderResults(data, payload) {
   renderBudget(data, payload);
   renderChecklist(data, payload);
 
-  document.querySelector('.tab-btn[data-tab="overview"]').click();
+  document.querySelector('.tab-btn[data-tab="route"]').click();
   resultsEl.scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
@@ -287,6 +294,45 @@ function renderTripPass(data, payload) {
     </div>
     <button class="pass-edit-btn" onclick="scrollToSearch()" aria-label="Edit search">${pencilSvg(11)} Edit</button>
   `;
+
+  // Alternatives strip
+  const alts = c?.alternatives || [];
+  const altEl = $('centre-alternatives');
+  if (!altEl) return;
+  if (!alts.length) {
+    altEl.style.display = 'none';
+    return;
+  }
+  altEl.style.display = 'flex';
+  altEl.innerHTML = `
+    <span style="font-size:13px;color:var(--muted);font-weight:500;flex-shrink:0;">Not the right centre?</span>
+    ${alts.map((a, i) => `
+      <button type="button"
+        onclick="_pickAlternative(${i})"
+        data-alt-index="${i}"
+        style="padding:5px 12px;border-radius:20px;border:1.5px solid var(--border);background:var(--surface);font-size:12.5px;font-weight:600;color:var(--navy);cursor:pointer;white-space:nowrap;max-width:260px;overflow:hidden;text-overflow:ellipsis;"
+        title="${esc(a.title + (a.address ? ' — ' + a.address : ''))}">
+        ${esc(a.title || a.address)}
+      </button>`).join('')}
+  `;
+  // Store alternatives on the element for the click handler
+  altEl._alternatives = alts;
+  altEl._payload      = payload;
+}
+
+function _pickAlternative(idx) {
+  const altEl = $('centre-alternatives');
+  if (!altEl) return;
+  const alt     = (altEl._alternatives || [])[idx];
+  const payload = altEl._payload;
+  if (!alt || !payload) return;
+  const newAddress = [alt.title, alt.address].filter(Boolean).join(', ');
+  if ($('f-centre')) $('f-centre').value = newAddress;
+  scrollToSearch();
+  // Re-run the search with the new centre address
+  const newPayload = { ...payload, centre_address: newAddress };
+  // Clear geo if it was set (reuse payload's start fields as-is)
+  runSearch(newPayload);
 }
 
 // ─── Journey Strip ────────────────────────────────────────────────────────────
@@ -548,16 +594,20 @@ function renderRoute(data, payload) {
   const centre = data.centre;
   const cLat   = centre?.latitude;
   const cLng   = centre?.longitude;
+  const sr     = data.station_route;
 
-  function routeCard(title, route, dirUrl) {
+  function routeCard(title, tag, route, dirUrl) {
+    const tagHtml = tag
+      ? `<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:10px;background:var(--surface);border:1px solid var(--border);color:var(--muted);margin-left:6px;vertical-align:middle;">${esc(tag)}</span>`
+      : '';
     return `
       <div class="route-card">
-        <h3>${carSvg(15)} ${esc(title)}</h3>
+        <h3>${carSvg(15)} ${esc(title)}${tagHtml}</h3>
         ${route ? `
           <div class="route-row">
             <div class="route-kv"><span class="rk">Drive time</span><span class="rv">${esc(route.drive_fmt || '—')}</span></div>
             <div class="route-kv"><span class="rk">Walk time</span><span class="rv">${esc(route.walk_fmt || '—')}</span></div>
-            <div class="route-kv"><span class="rk">Distance</span><span class="rv">${distFmt(route.distance_m)}</span></div>
+            <div class="route-kv"><span class="rk">Driving distance</span><span class="rv">${distFmt(route.distance_m)}</span></div>
             <div class="route-kv"><span class="rk">Leave by</span><span class="rv" style="color:var(--primary)">${esc(route.leave_by || '—')}</span></div>
           </div>
           ${dirUrl ? `<div style="margin-top:14px"><a href="${esc(dirUrl)}" target="_blank" rel="noopener" style="font-weight:700;font-size:13px;display:inline-flex;align-items:center;gap:4px;">${externalSvg(13)} Open in Google Maps</a></div>` : ''}
@@ -568,28 +618,95 @@ function renderRoute(data, payload) {
   }
 
   const bp = data.best_pick;
-  const stationTitle = `${payload.city} Railway Station → ${centre?.title ?? 'Centre'}`;
-  const bestTitle    = `${bp?.name ?? 'Best Pick'} → ${centre?.title ?? 'Centre'}`;
 
+  // --- station/start card ---
+  const startKind  = sr?.start_kind ?? 'station';
+  const startLabel = sr?.start_label || (
+    startKind === 'current_location' ? 'Your current location' :
+    startKind === 'custom'           ? (payload.start_address || 'Your starting point') :
+                                       `${payload.city} Railway Station`
+  );
+  const startTag = startKind === 'current_location' ? 'Your current location'
+                 : startKind === 'custom'            ? 'Your starting point'
+                 :                                     'Main railway station';
+  const startTitle = `${startLabel} → ${centre?.title ?? 'Centre'}`;
+
+  // dirUrl origin: GPS coords if available, else text label
+  let startOrigin;
+  if (startKind === 'current_location' && payload.start_lat != null && payload.start_lng != null) {
+    startOrigin = `${payload.start_lat},${payload.start_lng}`;
+  } else {
+    startOrigin = startLabel;
+  }
   const stationDirUrl = (cLat != null && cLng != null)
-    ? `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(payload.city + ' railway station')}&destination=${cLat},${cLng}`
+    ? `https://www.google.com/maps/dir/?api=1&origin=${encodeURIComponent(startOrigin)}&destination=${cLat},${cLng}`
     : null;
 
+  // --- best-pick card ---
+  const bestTitle  = `${bp?.name ?? 'Best Pick'} → ${centre?.title ?? 'Centre'}`;
   const bestDirUrl = (bp?.latitude != null && bp?.longitude != null && cLat != null && cLng != null)
     ? `https://www.google.com/maps/dir/?api=1&origin=${bp.latitude},${bp.longitude}&destination=${cLat},${cLng}`
     : null;
 
   $('route-content').innerHTML =
-    routeCard(stationTitle, data.station_route, stationDirUrl) +
-    routeCard(bestTitle, bp?.route, bestDirUrl);
+    routeCard(startTitle, startTag, sr, stationDirUrl) +
+    routeCard(bestTitle, null, bp?.route, bestDirUrl);
 }
 
 // ─── Food tab ─────────────────────────────────────────────────────────────────
 function renderFood(data) {
   const food = data.food || [];
-  $('food-list').innerHTML = food.length
-    ? food.map(f => placeCardHtml(f)).join('')
-    : emptyStateSvg('No restaurants found near the centre.', 'food');
+
+  function sortedList() {
+    const sort = $('food-sort')?.value ?? 'nearest';
+    const list = [...food];
+    if (sort === 'top_rated') {
+      list.sort((a, b) => {
+        const ra = a.rating ?? -1, rb = b.rating ?? -1;
+        if (rb !== ra) return rb - ra;
+        return (b.reviews ?? 0) - (a.reviews ?? 0);
+      });
+    } else {
+      list.sort((a, b) => (a.distance_m ?? 0) - (b.distance_m ?? 0));
+    }
+    return list;
+  }
+
+  function render() {
+    $('food-list').innerHTML = food.length
+      ? sortedList().map(f => foodCardHtml(f)).join('')
+      : emptyStateSvg('No restaurants found near the centre.', 'food');
+  }
+
+  $('food-sort')?.addEventListener('change', render);
+  render();
+}
+
+function foodCardHtml(f) {
+  const openCls = /open/i.test(f.open_state || '') ? 'open-yes' : f.open_state ? 'open-no' : '';
+  const mapsUrl = (f.latitude != null && f.longitude != null)
+    ? `https://www.google.com/maps/search/?api=1&query=${f.latitude},${f.longitude}`
+    : null;
+  const dash = '<span class="dash">—</span>';
+  const ratingHtml = f.rating != null
+    ? `${starSvg(12)} ${Number(f.rating).toFixed(1)}${f.reviews != null ? ` (${Number(f.reviews).toLocaleString('en-IN')})` : ''}`
+    : dash;
+
+  return `
+    <div class="place-card">
+      <div style="flex:1;min-width:0;">
+        <div class="pc-title">${esc(f.title)}</div>
+        <div class="pc-addr">${f.address ? esc(f.address) : dash}</div>
+        ${f.open_state ? `<div class="pc-open ${openCls}">${esc(f.open_state)}</div>` : ''}
+      </div>
+      <div class="pc-right" style="align-items:flex-end;">
+        <div class="pc-rating">${ratingHtml}</div>
+        <div class="pc-dist">${distFmt(f.distance_m)}</div>
+        ${f.price != null ? `<div class="pc-dist">${esc(f.price)}</div>` : ''}
+        ${mapsUrl ? `<a href="${esc(mapsUrl)}" target="_blank" rel="noopener" style="font-size:12px;font-weight:600;white-space:nowrap;display:inline-flex;align-items:center;gap:3px;margin-top:4px;">${externalSvg(11)} Open in Google Maps</a>` : ''}
+      </div>
+    </div>
+  `;
 }
 
 // ─── Essentials tab ───────────────────────────────────────────────────────────
@@ -778,6 +895,15 @@ function restoreFromStorage() {
     if ($('f-budget'))  $('f-budget').value  = payload.max_budget     || '';
     if ($('f-people'))  $('f-people').value  = payload.people         || '';
 
+    // Restore start fields
+    if (payload.start_lat != null && payload.start_lng != null) {
+      _geoLat = payload.start_lat;
+      _geoLng = payload.start_lng;
+      _applyGeoSuccess();
+    } else if (payload.start_address && $('f-start')) {
+      $('f-start').value = payload.start_address;
+    }
+
     _data = data;
     renderResults(data, payload);
   } catch (_) {
@@ -785,23 +911,102 @@ function restoreFromStorage() {
   }
 }
 
+// ─── Geolocation helpers ──────────────────────────────────────────────────────
+function _applyGeoSuccess() {
+  const statusEl = $('geoloc-status');
+  const inputEl  = $('f-start');
+  if (!statusEl || !inputEl) return;
+  statusEl.innerHTML = `
+    <span style="color:#16A34A;font-weight:600;">
+      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#16A34A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="vertical-align:-1px"><polyline points="20 6 9 17 4 12"/></svg>
+      Using your current location
+    </span>
+    <button type="button" onclick="_clearGeo()"
+      style="margin-left:8px;background:none;border:none;color:var(--muted);font-size:12px;cursor:pointer;text-decoration:underline;padding:0;">clear</button>
+  `;
+  inputEl.disabled = true;
+  inputEl.value    = '';
+}
+
+function _clearGeo() {
+  _geoLat = null;
+  _geoLng = null;
+  const statusEl = $('geoloc-status');
+  const inputEl  = $('f-start');
+  if (statusEl) statusEl.textContent = '';
+  if (inputEl)  { inputEl.disabled = false; }
+}
+
 // ─── Init ─────────────────────────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', () => {
   initTabs();
 
-  $('f-date').min = new Date().toISOString().slice(0, 10);
+  // Date min = tomorrow (IST)
+  const nowIST = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+  const tomorrowIST = new Date(nowIST);
+  tomorrowIST.setDate(tomorrowIST.getDate() + 1);
+  $('f-date').min = tomorrowIST.toISOString().slice(0, 10);
 
   $('search-form').addEventListener('submit', (e) => {
     e.preventDefault();
     if (!validateForm()) return;
-    runSearch({
+    const payload = {
       centre_address: $('f-centre').value.trim(),
       city:           $('f-city').value.trim(),
       exam_date:      $('f-date').value,
       reporting_time: $('f-time').value,
       max_budget:     Number($('f-budget').value),
       people:         Number($('f-people').value),
-    });
+    };
+    if (_geoLat != null && _geoLng != null) {
+      payload.start_lat = _geoLat;
+      payload.start_lng = _geoLng;
+    } else {
+      const sa = $('f-start')?.value.trim();
+      if (sa) payload.start_address = sa;
+    }
+    runSearch(payload);
+  });
+
+  // Geolocation button
+  $('btn-geoloc')?.addEventListener('click', () => {
+    const statusEl = $('geoloc-status');
+    if (!navigator.geolocation) {
+      if (statusEl) statusEl.textContent = 'Geolocation is not supported by your browser.';
+      return;
+    }
+    if (statusEl) statusEl.textContent = 'Getting your location…';
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        _geoLat = pos.coords.latitude;
+        _geoLng = pos.coords.longitude;
+        _applyGeoSuccess();
+      },
+      (err) => {
+        _geoLat = null;
+        _geoLng = null;
+        const msg = err.code === 1
+          ? 'Location access denied. Enter your start address manually.'
+          : 'Could not get your location. Enter your start address manually.';
+        if (statusEl) statusEl.textContent = msg;
+      },
+      { timeout: 10000 }
+    );
+  });
+
+  // Example button — fills form, does not submit
+  $('btn-example')?.addEventListener('click', () => {
+    const d = new Date(new Date().toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    d.setDate(d.getDate() + 21);
+    const examDate = d.toISOString().slice(0, 10);
+    _clearGeo();
+    if ($('f-centre'))  $('f-centre').value  = 'IIT Delhi, Hauz Khas';
+    if ($('f-city'))    $('f-city').value    = 'New Delhi';
+    if ($('f-date'))    $('f-date').value    = examDate;
+    if ($('f-time'))    $('f-time').value    = '08:30';
+    if ($('f-people'))  $('f-people').value  = '2';
+    if ($('f-budget'))  $('f-budget').value  = '2500';
+    if ($('f-start'))   $('f-start').value   = '';
   });
 
   document.querySelectorAll('[data-scroll="search"]').forEach(el => {

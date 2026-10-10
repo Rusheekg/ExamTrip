@@ -39,6 +39,8 @@ class RouteInfo(TypedDict):
     walk_fmt: str | None     # e.g. "40 min"
     distance_m: int          # metres (Driving route)
     leave_by: str            # "HH:MM" IST
+    start_label: str         # resolved start name shown in the UI
+    start_kind: str          # "current_location" | "custom" | "station"
 
 
 class StayResult(TypedDict):
@@ -59,7 +61,10 @@ class FoodResult(TypedDict):
     rating: float | None
     reviews: int | None
     price: str | None        # e.g. "$", "$$", None
+    open_state: str | None   # e.g. "Open", "Closed", None
     address: str
+    latitude: float | None
+    longitude: float | None
     distance_m: int          # straight-line distance from the centre
 
 
@@ -68,7 +73,7 @@ class TripPlan(TypedDict):
     stays: list[StayResult]       # ranked by drive_s then price
     station_route: RouteInfo | None
     arrive_by_accepted: bool      # True if the timed request succeeded
-    food: list[FoodResult]        # up to 5 rated restaurants near the centre
+    food: list[FoodResult]        # up to 15 rated restaurants near the centre
 
 
 # ---------------------------------------------------------------------------
@@ -150,6 +155,7 @@ def get_route(
     end_coords: str,
     arrive_ts: int,
     start_addr: str | None = None,
+    start_kind: str = "station",
 ) -> tuple[RouteInfo | None, bool]:
     """Fetch driving + walking durations from *start* to *end*.
 
@@ -227,6 +233,13 @@ def get_route(
     walk_s   = walking.get("duration")   if walking else None
     walk_fmt = walking.get("formatted_duration") if walking else None
 
+    # --- extract start_label from places_info when available ---
+    places_info = results.get("places_info") or []
+    if places_info:
+        start_label = places_info[0].get("name") or places_info[0].get("address") or ""
+    else:
+        start_label = start_addr or start_coords or ""
+
     return RouteInfo(
         drive_s=driving.get("duration", 0),
         drive_fmt=driving.get("formatted_duration", ""),
@@ -234,6 +247,8 @@ def get_route(
         walk_fmt=walk_fmt,
         distance_m=driving.get("distance", 0),
         leave_by="",   # filled in by caller
+        start_label=start_label,
+        start_kind=start_kind,
     ), arrive_by_accepted
 
 
@@ -317,7 +332,7 @@ def search_stays(
 # Food search
 # ---------------------------------------------------------------------------
 
-def search_food(centre: CentreInfo, top_n: int = 5) -> list[FoodResult]:
+def search_food(centre: CentreInfo, top_n: int = 15) -> list[FoodResult]:
     """Return up to *top_n* rated restaurants near *centre*, sorted by
     straight-line distance from the centre.
 
@@ -353,7 +368,10 @@ def search_food(centre: CentreInfo, top_n: int = 5) -> list[FoodResult]:
             rating=item.get("rating"),
             reviews=item.get("reviews"),
             price=item.get("price"),
+            open_state=item.get("open_state"),
             address=item.get("address", ""),
+            latitude=r_lat,
+            longitude=r_lon,
             distance_m=dist_m,
         ))
 
@@ -372,6 +390,9 @@ def plan_trip(
     reporting_time: str,
     max_budget: int,
     people: int,
+    start_address: str | None = None,
+    start_lat: float | None = None,
+    start_lng: float | None = None,
 ) -> TripPlan:
     """Plan a trip to an exam centre.
 
@@ -390,13 +411,18 @@ def plan_trip(
         Maximum price per night in INR.
     people:
         Number of adults.
+    start_address:
+        Optional free-text starting address (overrides the default station).
+    start_lat, start_lng:
+        Optional GPS coordinates of the starting point (take priority over
+        *start_address* when both are supplied).
 
     Returns
     -------
     TripPlan
         Dict with keys ``centre``, ``stays`` (ranked), ``station_route``.
     """
-    centre = lookup_centre(centre_address)
+    centre = lookup_centre(centre_address, city)
     arrive_ts = _arrive_by_ts(exam_date, reporting_time)
     end_coords = f"{centre['latitude']},{centre['longitude']}"
 
@@ -418,9 +444,25 @@ def plan_trip(
             route["leave_by"] = _leave_by(arrive_ts, route["drive_s"])
         stay["route"] = route
 
-    # --- station route ---
-    station_addr = f"{city} railway station"
-    station_route, st_accepted = get_route(None, end_coords, arrive_ts, start_addr=station_addr)
+    # --- starting-point route (station / custom address / GPS) ---
+    if start_lat is not None and start_lng is not None:
+        _s_coords = f"{start_lat},{start_lng}"
+        _s_addr   = None
+        _s_kind   = "current_location"
+    elif start_address:
+        _s_coords = None
+        _s_addr   = start_address
+        _s_kind   = "custom"
+    else:
+        _s_coords = None
+        _s_addr   = f"{city} railway station"
+        _s_kind   = "station"
+
+    station_route, st_accepted = get_route(
+        _s_coords, end_coords, arrive_ts,
+        start_addr=_s_addr,
+        start_kind=_s_kind,
+    )
     if arrive_by_accepted is None:
         arrive_by_accepted = st_accepted
     if station_route is not None:
@@ -486,7 +528,7 @@ if __name__ == "__main__":
     from datetime import date as _date
 
     plan = plan_trip(
-        centre_address="IIT Delhi, Hauz Khas, New Delhi",
+        centre_address="IIT Delhi, Hauz Khas",
         city="New Delhi",
         exam_date=_date(2026, 10, 31),
         reporting_time="08:30",

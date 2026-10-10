@@ -284,6 +284,23 @@
           <input id="f-budget" type="number" name="max_budget" min="1" placeholder="2500" required>
           <span class="field-error" id="e-budget" role="alert"></span>
         </div>
+        <div class="field span2">
+          <label for="f-start">Starting from <span style="font-weight:400;color:var(--muted)">(optional)</span></label>
+          <div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;">
+            <input id="f-start" type="text" name="start_address"
+              placeholder="Railway station, bus stand, or your address"
+              autocomplete="street-address"
+              style="flex:1;min-width:180px;">
+            <button type="button" id="btn-geoloc"
+              style="white-space:nowrap;padding:0 14px;height:42px;border:1.5px solid var(--border);border-radius:8px;background:var(--surface);font-size:13px;font-weight:600;cursor:pointer;display:inline-flex;align-items:center;gap:6px;"
+              aria-label="Use my current location">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M12 2v3m0 14v3M2 12h3m14 0h3"/><path d="M12 2a10 10 0 0 1 0 20A10 10 0 0 1 12 2z" stroke-dasharray="4 2"/></svg>
+              Use my current location
+            </button>
+          </div>
+          <div id="geoloc-status" style="margin-top:5px;font-size:12.5px;color:var(--muted);min-height:18px;" aria-live="polite"></div>
+          <span style="font-size:12px;color:var(--muted);margin-top:3px;display:block;">Leave empty to use the city's main railway station.</span>
+        </div>
       </div>
 
       <div id="search-alert" class="alert" role="alert" aria-live="assertive"></div>
@@ -292,6 +309,11 @@
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/></svg>
         Find My Exam Trip
       </button>
+      <div style="text-align:center;margin-top:10px;">
+        <button type="button" id="btn-example"
+          style="background:none;border:none;color:var(--primary);font-size:13px;font-weight:600;cursor:pointer;text-decoration:underline;padding:0;"
+          aria-label="Fill form with an example">Try an example</button>
+      </div>
     </form>
   </div>
 </section>
@@ -384,6 +406,9 @@
   <!-- Trip Pass -->
   <div id="trip-pass" class="trip-pass" aria-label="Trip summary card"></div>
 
+  <!-- Centre alternatives -->
+  <div id="centre-alternatives" style="display:none;margin-top:10px;flex-wrap:wrap;gap:8px;align-items:center;padding:10px 14px;background:var(--surface);border:1px solid var(--border);border-radius:10px;" aria-label="Alternative exam centres" aria-live="polite"></div>
+
   <!-- Journey Strip -->
   <div id="journey-strip" class="journey-strip" aria-label="Journey timeline"></div>
 
@@ -433,17 +458,42 @@
 
   <!-- Tabs -->
   <div class="tabs-nav" role="tablist" aria-label="Results sections">
-    <button class="tab-btn active" role="tab" aria-selected="true"  aria-controls="tab-overview"   data-tab="overview">Overview</button>
+    <button class="tab-btn active" role="tab" aria-selected="true"  aria-controls="tab-route"      data-tab="route">Route</button>
     <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-stays"      data-tab="stays">Stays</button>
-    <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-route"      data-tab="route">Route</button>
     <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-food"       data-tab="food">Food</button>
-    <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-essentials" data-tab="essentials">Essentials</button>
+    <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-overview"   data-tab="overview">Overview</button>
     <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-budget"     data-tab="budget">Budget</button>
+    <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-essentials" data-tab="essentials">Essentials</button>
     <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-checklist"  data-tab="checklist">Checklist</button>
   </div>
 
+  <!-- ── Route ── -->
+  <div id="tab-route" class="tab-panel active" role="tabpanel" aria-label="Route information">
+    <div class="tab-header">
+      <div class="tab-header-icon" aria-hidden="true">
+        <!-- Original: road with dashed centre line -->
+        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="4" y="8" width="40" height="32" rx="6" fill="#FEF3C7"/>
+          <path d="M8 40l8-32h16l8 32" fill="#FDE68A" stroke="#FDE68A" stroke-width="1"/>
+          <line x1="24" y1="12" x2="24" y2="18" stroke="#F59E0B" stroke-width="2" stroke-linecap="round"/>
+          <line x1="24" y1="22" x2="24" y2="28" stroke="#F59E0B" stroke-width="2" stroke-linecap="round"/>
+          <line x1="24" y1="32" x2="24" y2="38" stroke="#F59E0B" stroke-width="2" stroke-linecap="round"/>
+          <circle cx="12" cy="24" r="5" fill="#2563EB"/>
+          <path d="M10 24l1.5 1.5 3-3" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+          <circle cx="36" cy="24" r="5" fill="#16A34A"/>
+          <path d="M34 24l1.5 1.5 3-3" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+        </svg>
+      </div>
+      <div class="tab-header-text">
+        <h3>Route</h3>
+        <p>Drive times and leave-by times from the railway station and your best pick.</p>
+      </div>
+    </div>
+    <div id="route-content"></div>
+  </div>
+
   <!-- ── Overview ── -->
-  <div id="tab-overview" class="tab-panel active" role="tabpanel" aria-label="Overview">
+  <div id="tab-overview" class="tab-panel" role="tabpanel" aria-label="Overview">
     <div class="tab-header">
       <div class="tab-header-icon" aria-hidden="true">
         <!-- Original: building with map pin above it -->
@@ -511,31 +561,6 @@
     <div id="stays-grid" class="stays-grid" aria-label="Stay options"></div>
   </div>
 
-  <!-- ── Route ── -->
-  <div id="tab-route" class="tab-panel" role="tabpanel" aria-label="Route information">
-    <div class="tab-header">
-      <div class="tab-header-icon" aria-hidden="true">
-        <!-- Original: road with dashed centre line -->
-        <svg viewBox="0 0 48 48" fill="none" xmlns="http://www.w3.org/2000/svg">
-          <rect x="4" y="8" width="40" height="32" rx="6" fill="#FEF3C7"/>
-          <path d="M8 40l8-32h16l8 32" fill="#FDE68A" stroke="#FDE68A" stroke-width="1"/>
-          <line x1="24" y1="12" x2="24" y2="18" stroke="#F59E0B" stroke-width="2" stroke-linecap="round"/>
-          <line x1="24" y1="22" x2="24" y2="28" stroke="#F59E0B" stroke-width="2" stroke-linecap="round"/>
-          <line x1="24" y1="32" x2="24" y2="38" stroke="#F59E0B" stroke-width="2" stroke-linecap="round"/>
-          <circle cx="12" cy="24" r="5" fill="#2563EB"/>
-          <path d="M10 24l1.5 1.5 3-3" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
-          <circle cx="36" cy="24" r="5" fill="#16A34A"/>
-          <path d="M34 24l1.5 1.5 3-3" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
-        </svg>
-      </div>
-      <div class="tab-header-text">
-        <h3>Route</h3>
-        <p>Drive times and leave-by times from the railway station and your best pick.</p>
-      </div>
-    </div>
-    <div id="route-content"></div>
-  </div>
-
   <!-- ── Food ── -->
   <div id="tab-food" class="tab-panel" role="tabpanel" aria-label="Food nearby">
     <div class="tab-header">
@@ -555,6 +580,15 @@
       <div class="tab-header-text">
         <h3>Food</h3>
         <p>Rated budget restaurants near the exam centre.</p>
+      </div>
+    </div>
+    <div class="stays-controls" style="margin-bottom:12px;">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <label for="food-sort">Sort by:</label>
+        <select id="food-sort" aria-label="Sort restaurants by">
+          <option value="nearest">Nearest</option>
+          <option value="top_rated">Top rated</option>
+        </select>
       </div>
     </div>
     <div class="list-section">

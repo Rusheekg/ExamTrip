@@ -11,13 +11,14 @@ from __future__ import annotations
 
 import math
 import os
-from datetime import date
-from typing import Any
+from datetime import date, datetime, timedelta
+from zoneinfo import ZoneInfo
 
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, field_validator
+from typing import Any, Optional
 
 import serp_client  # loads .env via explicit path at import time
 from essentials import find_essentials
@@ -62,6 +63,9 @@ def _error(message: str, status: int) -> JSONResponse:
 # Request model
 # ---------------------------------------------------------------------------
 
+_IST = ZoneInfo("Asia/Kolkata")
+
+
 class PlanRequest(BaseModel):
     centre_address: str
     city: str
@@ -69,14 +73,20 @@ class PlanRequest(BaseModel):
     reporting_time: str     # HH:MM
     max_budget: int
     people: int
+    start_address: Optional[str] = None
+    start_lat: Optional[float] = None
+    start_lng: Optional[float] = None
 
     @field_validator("exam_date")
     @classmethod
     def _validate_date(cls, v: str) -> str:
         try:
-            date.fromisoformat(v)
+            d = date.fromisoformat(v)
         except ValueError:
             raise ValueError("exam_date must be YYYY-MM-DD")
+        tomorrow = datetime.now(tz=_IST).date() + timedelta(days=1)
+        if d < tomorrow:
+            raise ValueError("Choose an exam date from tomorrow onwards.")
         return v
 
     @field_validator("reporting_time")
@@ -138,17 +148,16 @@ async def plan(req: PlanRequest) -> JSONResponse:
             reporting_time=req.reporting_time,
             max_budget=req.max_budget,
             people=req.people,
+            start_address=req.start_address.strip() if req.start_address else None,
+            start_lat=req.start_lat,
+            start_lng=req.start_lng,
         )
     except EnvironmentError as exc:
         return _error(str(exc), 503)
     except ValueError as exc:
         msg = str(exc)
-        if "No local results" in msg:
-            return _error(
-                f"Exam centre not found: {req.centre_address!r}. "
-                "Try a more specific address.",
-                404,
-            )
+        if "Exam centre not found" in msg:
+            return _error(msg, 404)
         return _error(msg, 400)
     except ConnectionError as exc:
         return _error(f"Network error contacting SerpApi: {exc}", 502)

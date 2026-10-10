@@ -43,11 +43,17 @@ def has_api_key() -> bool:
 # Types
 # ---------------------------------------------------------------------------
 
+class AlternativeCentre(TypedDict):
+    title: str
+    address: str
+
+
 class CentreInfo(TypedDict):
     title: str
     address: str
     latitude: float
     longitude: float
+    alternatives: list  # list[AlternativeCentre]
 
 
 # ---------------------------------------------------------------------------
@@ -122,14 +128,16 @@ def serp_search(params: dict[str, Any]) -> dict:
 # Centre lookup (Google Maps)
 # ---------------------------------------------------------------------------
 
-def lookup_centre(place: str) -> CentreInfo:
-    """Return title and GPS coordinates for *place* via Google Maps results.
+def lookup_centre(address: str, city: str = "") -> CentreInfo:
+    """Return title and GPS coordinates for an exam centre in India.
 
     Parameters
     ----------
-    place:
-        Free-text description of the exam centre, e.g.
+    address:
+        Free-text address of the exam centre, e.g.
         ``"IIT Delhi, Hauz Khas, New Delhi"``.
+    city:
+        Optional city hint used to build more targeted fallback queries.
 
     Returns
     -------
@@ -140,27 +148,60 @@ def lookup_centre(place: str) -> CentreInfo:
     Raises
     ------
     ValueError
-        If the API returns no local results for the query.
+        If none of the fallback queries return a result.
     """
-    params = {
-        "engine": "google_maps",
-        "q": place,
-        "type": "search",
-    }
-    results = serp_search(params)
+    address = address.strip()
+    city    = city.strip()
 
-    local_results = results.get("local_results") or []
-    if not local_results:
-        raise ValueError(f"No local results found for: {place!r}")
+    # Build the ordered list of query strings to try
+    queries: list[str] = []
+    if city:
+        queries.append(f"{address}, {city}")
+        queries.append(f"{address} {city} exam centre")
+    queries.append(address)
 
-    first = local_results[0]
-    gps = first.get("gps_coordinates", {})
+    def _first_result(results: dict) -> dict | None:
+        """Return the first usable place from place_results or local_results."""
+        place = results.get("place_results")
+        if place:
+            return place
+        local = results.get("local_results") or []
+        return local[0] if local else None
 
-    return CentreInfo(
-        title=first.get("title", ""),
-        address=first.get("address", ""),
-        latitude=gps.get("latitude", float("nan")),
-        longitude=gps.get("longitude", float("nan")),
+    for q in queries:
+        params = {
+            "engine": "google_maps",
+            "q": q,
+            "type": "search",
+            "hl": "en",
+        }
+        results = serp_search(params)
+        hit = _first_result(results)
+        if hit:
+            gps = hit.get("gps_coordinates") or {}
+            # Collect up to 3 other local_results as alternatives
+            local = results.get("local_results") or []
+            alternatives: list[AlternativeCentre] = []
+            for other in local:
+                if other is hit:
+                    continue
+                t = other.get("title", "")
+                a = other.get("address", "")
+                if t or a:
+                    alternatives.append(AlternativeCentre(title=t, address=a))
+                if len(alternatives) >= 3:
+                    break
+            return CentreInfo(
+                title=hit.get("title", ""),
+                address=hit.get("address", ""),
+                latitude=gps.get("latitude", float("nan")),
+                longitude=gps.get("longitude", float("nan")),
+                alternatives=alternatives,
+            )
+
+    raise ValueError(
+        "Exam centre not found. Add the area, a landmark, "
+        "or the PIN code from your admit card."
     )
 
 
@@ -169,9 +210,10 @@ def lookup_centre(place: str) -> CentreInfo:
 # ---------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    query = "IIT Delhi, Hauz Khas, New Delhi"
-    print(f"Looking up: {query!r}")
-    info = lookup_centre(query)
+    query = "IIT Delhi, Hauz Khas"
+    city  = "New Delhi"
+    print(f"Looking up: {query!r} (city={city!r})")
+    info = lookup_centre(query, city)
     print(f"  Title    : {info['title']}")
     print(f"  Address  : {info['address']}")
     print(f"  Latitude : {info['latitude']}")
