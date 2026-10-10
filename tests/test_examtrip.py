@@ -22,6 +22,7 @@ from examtrip import (
     pick_best_stay,
     StayResult,
     RouteInfo,
+    _extract_drive_walk,
 )
 
 _IST = ZoneInfo("Asia/Kolkata")
@@ -38,6 +39,8 @@ def _make_route(drive_s: int) -> RouteInfo:
         drive_fmt=f"{drive_s // 60} min",
         walk_s=None,
         walk_fmt=None,
+        transit_s=None,
+        transit_fmt=None,
         distance_m=0,
         leave_by="",
         start_label="",
@@ -112,20 +115,27 @@ class TestLeaveBy:
         drive_s   = 14 * 60   # 14 minutes
         # Default _BUFFER_MINUTES is 30
         assert _BUFFER_MINUTES == 30
-        result = _leave_by(arrive_ts, drive_s)
+        result = _leave_by(arrive_ts, drive_s, buffer_minutes=30)
         assert result == "07:46"
 
     def test_custom_buffer_gives_0731(self):
-        # Temporarily override _BUFFER_MINUTES to 45
+        # Pass buffer_minutes=45 directly as a parameter
         arrive_ts = self._ts_for("08:30")
         drive_s   = 14 * 60
-        original  = examtrip._BUFFER_MINUTES
-        try:
-            examtrip._BUFFER_MINUTES = 45
-            result = _leave_by(arrive_ts, drive_s)
-            assert result == "07:31"
-        finally:
-            examtrip._BUFFER_MINUTES = original
+        result = _leave_by(arrive_ts, drive_s, buffer_minutes=45)
+        assert result == "07:31"
+
+    def test_buffer_15_gives_0801(self):
+        arrive_ts = self._ts_for("08:30")
+        drive_s   = 14 * 60
+        result = _leave_by(arrive_ts, drive_s, buffer_minutes=15)
+        assert result == "08:01"
+
+    def test_buffer_60_gives_0716(self):
+        arrive_ts = self._ts_for("08:30")
+        drive_s   = 14 * 60
+        result = _leave_by(arrive_ts, drive_s, buffer_minutes=60)
+        assert result == "07:16"
 
 
 # ---------------------------------------------------------------------------
@@ -176,3 +186,29 @@ class TestPickBestStay:
         best = pick_best_stay(stays)
         # No stay is rated >= 3.5, so falls back to cheapest in window.
         assert best["name"] == "Cheap Low"
+
+
+# ---------------------------------------------------------------------------
+# _extract_drive_walk (transit extraction)
+# ---------------------------------------------------------------------------
+
+class TestExtractDriveWalk:
+    def test_extracts_transit_entry(self):
+        directions = [
+            {"travel_mode": "Driving",  "duration": 900,  "formatted_duration": "15 min", "distance": 5000},
+            {"travel_mode": "Walking",  "duration": 2400, "formatted_duration": "40 min", "distance": 2000},
+            {"travel_mode": "Transit",  "duration": 1200, "formatted_duration": "20 min", "distance": 3000},
+        ]
+        driving, walking, transit = _extract_drive_walk(directions)
+        assert driving is not None
+        assert walking is not None
+        assert transit is not None
+        assert transit["formatted_duration"] == "20 min"
+
+    def test_returns_none_when_no_transit(self):
+        directions = [
+            {"travel_mode": "driving",  "duration": 900,  "formatted_duration": "15 min", "distance": 5000},
+            {"travel_mode": "walking",  "duration": 2400, "formatted_duration": "40 min", "distance": 2000},
+        ]
+        driving, walking, transit = _extract_drive_walk(directions)
+        assert transit is None

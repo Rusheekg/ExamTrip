@@ -76,6 +76,16 @@ class PlanRequest(BaseModel):
     start_address: Optional[str] = None
     start_lat: Optional[float] = None
     start_lng: Optional[float] = None
+    buffer_minutes: Optional[int] = 30
+
+    @field_validator("buffer_minutes")
+    @classmethod
+    def _validate_buffer(cls, v: Optional[int]) -> int:
+        if v is None:
+            return 30
+        if v not in (15, 30, 45, 60):
+            raise ValueError("buffer_minutes must be 15, 30, 45, or 60")
+        return v
 
     @field_validator("exam_date")
     @classmethod
@@ -151,6 +161,7 @@ async def plan(req: PlanRequest) -> JSONResponse:
             start_address=req.start_address.strip() if req.start_address else None,
             start_lat=req.start_lat,
             start_lng=req.start_lng,
+            buffer_minutes=req.buffer_minutes,
         )
     except EnvironmentError as exc:
         return _error(str(exc), 503)
@@ -198,6 +209,7 @@ async def plan(req: PlanRequest) -> JSONResponse:
         "arrive_by_accepted": trip["arrive_by_accepted"],
         "food": trip["food"],
         "essentials": essentials,
+        "buffer_minutes": trip["buffer_minutes"],
     }
 
     return JSONResponse(_clean(response))

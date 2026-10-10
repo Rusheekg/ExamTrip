@@ -37,6 +37,8 @@ class RouteInfo(TypedDict):
     drive_fmt: str           # e.g. "14 min"
     walk_s: int | None       # Walking duration in seconds (None if unavailable)
     walk_fmt: str | None     # e.g. "40 min"
+    transit_s: int | None    # Transit duration in seconds (None if unavailable)
+    transit_fmt: str | None  # e.g. "35 min" (None if unavailable)
     distance_m: int          # metres (Driving route)
     leave_by: str            # "HH:MM" IST
     start_label: str         # resolved start name shown in the UI
@@ -74,6 +76,7 @@ class TripPlan(TypedDict):
     station_route: RouteInfo | None
     arrive_by_accepted: bool      # True if the timed request succeeded
     food: list[FoodResult]        # up to 15 rated restaurants near the centre
+    buffer_minutes: int           # buffer in minutes used for leave-by times
 
 
 # ---------------------------------------------------------------------------
@@ -117,12 +120,12 @@ def _arrive_by_ts(exam_date: date, reporting_time: str) -> int:
 # Leave-by calculation
 # ---------------------------------------------------------------------------
 
-def _leave_by(arrive_ts: int, duration_s: int) -> str:
+def _leave_by(arrive_ts: int, duration_s: int, buffer_minutes: int = _BUFFER_MINUTES) -> str:
     """Return the leave-by time as ``"HH:MM"`` IST.
 
-    Subtracts *duration_s* + BUFFER_MINUTES from *arrive_ts*.
+    Subtracts *duration_s* + *buffer_minutes* from *arrive_ts*.
     """
-    leave_ts = arrive_ts - duration_s - _BUFFER_MINUTES * 60
+    leave_ts = arrive_ts - duration_s - buffer_minutes * 60
     leave_dt = datetime.fromtimestamp(leave_ts, tz=_IST)
     return leave_dt.strftime("%H:%M")
 
@@ -131,14 +134,15 @@ def _leave_by(arrive_ts: int, duration_s: int) -> str:
 # Route lookup (Google Maps Directions)
 # ---------------------------------------------------------------------------
 
-def _extract_drive_walk(directions: list[dict]) -> tuple[dict | None, dict | None]:
-    """Scan *directions[]* and return the best Driving and Walking entries.
+def _extract_drive_walk(directions: list[dict]) -> tuple[dict | None, dict | None, dict | None]:
+    """Scan *directions[]* and return the best Driving, Walking, and Transit entries.
 
     "Best" means lowest duration among all entries with that travel_mode.
-    Returns (driving_entry, walking_entry); either may be None.
+    Returns (driving_entry, walking_entry, transit_entry); any may be None.
     """
     driving: dict | None = None
     walking: dict | None = None
+    transit: dict | None = None
     for entry in directions:
         mode = (entry.get("travel_mode") or "").lower()
         if mode == "driving":
@@ -147,7 +151,10 @@ def _extract_drive_walk(directions: list[dict]) -> tuple[dict | None, dict | Non
         elif mode == "walking":
             if walking is None or entry.get("duration", 999_999) < walking.get("duration", 999_999):
                 walking = entry
-    return driving, walking
+        elif mode in ("transit", "public_transport"):
+            if transit is None or entry.get("duration", 999_999) < transit.get("duration", 999_999):
+                transit = entry
+    return driving, walking, transit
 
 
 def get_route(
@@ -212,15 +219,15 @@ def get_route(
     if results is None:
         return None, False
 
-    # --- step 2: extract Driving and Walking from directions[] ---
-    driving, walking = _extract_drive_walk(results.get("directions") or [])
+    # --- step 2: extract Driving, Walking, and Transit from directions[] ---
+    driving, walking, transit = _extract_drive_walk(results.get("directions") or [])
 
     # --- step 3: if no Driving entry, fetch driving-only route ---
     if driving is None:
         drive_params = {**base, "travel_mode": "0"}
         drive_results = serp_search(drive_params)
         if not drive_results.get("error") and drive_results.get("directions"):
-            driving, _ = _extract_drive_walk(drive_results.get("directions") or [])
+            driving, _, _ = _extract_drive_walk(drive_results.get("directions") or [])
             # fall back to directions[0] of the driving-only response if still None
             if driving is None:
                 dirs = drive_results.get("directions") or []
@@ -230,8 +237,10 @@ def get_route(
     if driving is None:
         return None, arrive_by_accepted
 
-    walk_s   = walking.get("duration")   if walking else None
-    walk_fmt = walking.get("formatted_duration") if walking else None
+    walk_s    = walking.get("duration")            if walking else None
+    walk_fmt  = walking.get("formatted_duration")  if walking else None
+    transit_s   = transit.get("duration")           if transit else None
+    transit_fmt = transit.get("formatted_duration") if transit else None
 
     # --- extract start_label from places_info when available ---
     places_info = results.get("places_info") or []
@@ -245,6 +254,8 @@ def get_route(
         drive_fmt=driving.get("formatted_duration", ""),
         walk_s=walk_s,
         walk_fmt=walk_fmt,
+        transit_s=transit_s,
+        transit_fmt=transit_fmt,
         distance_m=driving.get("distance", 0),
         leave_by="",   # filled in by caller
         start_label=start_label,
@@ -393,6 +404,7 @@ def plan_trip(
     start_address: str | None = None,
     start_lat: float | None = None,
     start_lng: float | None = None,
+    buffer_minutes: int = _BUFFER_MINUTES,
 ) -> TripPlan:
     """Plan a trip to an exam centre.
 
@@ -441,7 +453,7 @@ def plan_trip(
         if arrive_by_accepted is None:
             arrive_by_accepted = accepted
         if route is not None:
-            route["leave_by"] = _leave_by(arrive_ts, route["drive_s"])
+            route["leave_by"] = _leave_by(arrive_ts, route["drive_s"], buffer_minutes)
         stay["route"] = route
 
     # --- starting-point route (station / custom address / GPS) ---
@@ -466,7 +478,7 @@ def plan_trip(
     if arrive_by_accepted is None:
         arrive_by_accepted = st_accepted
     if station_route is not None:
-        station_route["leave_by"] = _leave_by(arrive_ts, station_route["drive_s"])
+        station_route["leave_by"] = _leave_by(arrive_ts, station_route["drive_s"], buffer_minutes)
 
     # --- rank: drive_s asc, then price asc; no-route stays go last ---
     def _rank_key(s: StayResult) -> tuple:
@@ -484,6 +496,7 @@ def plan_trip(
         station_route=station_route,
         arrive_by_accepted=bool(arrive_by_accepted),
         food=food,
+        buffer_minutes=buffer_minutes,
     )
 
 

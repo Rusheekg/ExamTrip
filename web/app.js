@@ -353,6 +353,7 @@ function renderJourneyStrip(data, payload) {
   if (!r) { el.style.display = 'none'; return; }
   el.style.display = '';
 
+  const bufMin     = data.buffer_minutes ?? payload.buffer_minutes ?? 30;
   const leaveBy    = r.leave_by ?? '—';
   const driveS     = r.drive_s ?? 0;
   const arrivalTime = addMins(leaveBy, Math.round(driveS / 60));
@@ -374,7 +375,7 @@ function renderJourneyStrip(data, payload) {
         <div class="jp-dot end" title="Arrive at centre"></div>
         <div class="jp-time">${esc(arrivalTime)}</div>
         <div class="jp-label">${esc(data.centre?.title ?? 'Exam Centre')}</div>
-        <div class="jp-sub">Arrive — 30 min before ${esc(payload.reporting_time)}</div>
+        <div class="jp-sub">Arrive — ${bufMin} min before ${esc(payload.reporting_time)}</div>
       </div>
     </div>
   `;
@@ -450,6 +451,7 @@ function renderOverview(data) {
         ${bp?.rating != null ? `<span>${starsHtml(bp.rating)}${bp.reviews ? ` (${bp.reviews.toLocaleString('en-IN')})` : ''}</span>` : ''}
         ${r ? `<span>${carSvg(13)} ${esc(r.drive_fmt)}</span>` : ''}
         ${r?.walk_fmt ? `<span>${walkSvg(13)} ${esc(r.walk_fmt)}</span>` : ''}
+        ${r?.transit_fmt ? `<span>🚌 ${esc(r.transit_fmt)}</span>` : ''}
         ${r ? `<span>${pinSvg(13)} ${distFmt(r.distance_m)}</span>` : ''}
         ${r ? `<span>${clockSvg(13)} Leave by ${esc(r.leave_by)}</span>` : ''}
       </div>
@@ -590,6 +592,7 @@ function stayCardHtml(stay, badges = []) {
           ${stay.rating != null ? `<span>${starsHtml(stay.rating)}${stay.reviews ? ` (${stay.reviews.toLocaleString('en-IN')})` : ''}</span>` : ''}
           ${r ? `<span>${carSvg(12)} ${esc(r.drive_fmt)}</span>` : ''}
           ${r?.walk_fmt ? `<span>${walkSvg(12)} ${esc(r.walk_fmt)}</span>` : ''}
+          ${r?.transit_fmt ? `<span>🚌 ${esc(r.transit_fmt)}</span>` : ''}
           ${r ? `<span>${pinSvg(12)} ${distFmt(r.distance_m)}</span>` : ''}
           ${r ? `<span>${clockSvg(12)} Leave ${esc(r.leave_by)}</span>` : ''}
         </div>
@@ -617,6 +620,7 @@ function renderRoute(data, payload) {
           <div class="route-row">
             <div class="route-kv"><span class="rk">Drive time</span><span class="rv">${esc(route.drive_fmt || '—')}</span></div>
             <div class="route-kv"><span class="rk">Walk time</span><span class="rv">${esc(route.walk_fmt || '—')}</span></div>
+            <div class="route-kv"><span class="rk">Public transport</span><span class="rv">${route.transit_fmt ? esc(route.transit_fmt) : '—'}</span></div>
             <div class="route-kv"><span class="rk">Driving distance</span><span class="rv">${distFmt(route.distance_m)}</span></div>
             <div class="route-kv"><span class="rk">Leave by</span><span class="rv" style="color:var(--primary)">${esc(route.leave_by || '—')}</span></div>
           </div>
@@ -826,6 +830,7 @@ function renderChecklist(data, payload) {
   const leaveBy  = bp?.route?.leave_by || '06:00';
   const driveS   = bp?.route?.drive_s ?? 0;
   const arrTime  = addMins(leaveBy, Math.round(driveS / 60));
+  const bufMin   = data.buffer_minutes ?? payload.buffer_minutes ?? 30;
 
   const evening = [
     { key: 'adm-card', time: 'Evening before', label: 'Print your admit card and read its instructions' },
@@ -840,7 +845,7 @@ function renderChecklist(data, payload) {
     { key: 'eat',       time: addMins(leaveBy, -60), label: 'Have a light breakfast' },
     { key: 'check-bag', time: addMins(leaveBy, -30), label: 'Double-check bag: admit card, ID, and documents' },
     { key: 'leave',     time: leaveBy,               label: `Leave for ${data.centre?.title ?? 'exam centre'}` },
-    { key: 'arrive',    time: arrTime,                label: `Reach the centre by ${arrTime}, 30 minutes before your ${payload.reporting_time} reporting time` },
+    { key: 'arrive',    time: arrTime,                label: `Reach the centre by ${arrTime}, ${bufMin} minutes before your ${payload.reporting_time} reporting time` },
   ];
 
   function itemHtml(item) {
@@ -888,6 +893,50 @@ function scrollToSearch() {
   $('search').scrollIntoView({ behavior: 'smooth' });
 }
 
+// ─── Trip summary (share / copy) ─────────────────────────────────────────────
+function buildTripSummary(data, payload) {
+  if (!data || !payload) return '';
+  const c   = data.centre;
+  const bp  = data.best_pick;
+  const r   = bp?.route;
+  const sr  = data.station_route;
+  const bufMin = data.buffer_minutes ?? payload.buffer_minutes ?? 30;
+
+  const dateStr = new Date(payload.exam_date).toLocaleDateString('en-IN', {
+    weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', timeZone: 'UTC',
+  });
+
+  const lines = [];
+  lines.push('📋 ExamTrip — Trip Summary');
+  lines.push('');
+  lines.push(`🏛️  Centre: ${c?.title ?? payload.centre_address}`);
+  lines.push(`📍 Address: ${c?.address ?? payload.centre_address}`);
+  lines.push(`📅 Exam date: ${dateStr}`);
+  lines.push(`⏰ Reporting time: ${payload.reporting_time}`);
+  lines.push('');
+  if (bp) {
+    lines.push(`🏨 Best pick: ${bp.name}`);
+    if (bp.price_inr != null) lines.push(`   Price: ₹${Number(bp.price_inr).toLocaleString('en-IN')}/night`);
+    if (bp.rating != null)    lines.push(`   Rating: ${Number(bp.rating).toFixed(1)}`);
+    if (r) {
+      lines.push(`   Drive time: ${r.drive_fmt}`);
+      lines.push(`   Leave by: ${r.leave_by}`);
+      lines.push(`   Arrival time: ${addMins(r.leave_by, Math.round((r.drive_s ?? 0) / 60))}`);
+    }
+  }
+  lines.push('');
+  if (sr) {
+    lines.push(`🚉 From ${sr.start_label || 'your starting point'}:`);
+    lines.push(`   Drive time: ${sr.drive_fmt}`);
+    lines.push(`   Leave by: ${sr.leave_by}`);
+  }
+  lines.push('');
+  lines.push(`ℹ️  Buffer: ${bufMin} minutes early`);
+  lines.push('');
+  lines.push('⚠️  Verify the centre and gate on your official admit card.');
+  return lines.join('\n');
+}
+
 // ─── Restore from localStorage ────────────────────────────────────────────────
 function restoreFromStorage() {
   try {
@@ -904,6 +953,9 @@ function restoreFromStorage() {
     if ($('f-time'))    $('f-time').value    = payload.reporting_time || '';
     if ($('f-budget'))  $('f-budget').value  = payload.max_budget     || '';
     if ($('f-people'))  $('f-people').value  = payload.people         || '';
+    if ($('f-buffer') && payload.buffer_minutes != null) {
+      $('f-buffer').value = String(payload.buffer_minutes);
+    }
 
     // Restore start fields
     if (payload.start_lat != null && payload.start_lng != null) {
@@ -960,6 +1012,7 @@ document.addEventListener('DOMContentLoaded', () => {
   $('search-form').addEventListener('submit', (e) => {
     e.preventDefault();
     if (!validateForm()) return;
+    const bufferVal = Number($('f-buffer')?.value ?? 30);
     const payload = {
       centre_address: $('f-centre').value.trim(),
       city:           $('f-city').value.trim(),
@@ -967,6 +1020,7 @@ document.addEventListener('DOMContentLoaded', () => {
       reporting_time: $('f-time').value,
       max_budget:     Number($('f-budget').value),
       people:         Number($('f-people').value),
+      buffer_minutes: bufferVal,
     };
     if (_geoLat != null && _geoLng != null) {
       payload.start_lat = _geoLat;
@@ -1024,6 +1078,25 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   $('print-btn')?.addEventListener('click', () => window.print());
+
+  $('copy-btn')?.addEventListener('click', () => {
+    const summary = buildTripSummary(_data, JSON.parse(localStorage.getItem(LS_SEARCH) || 'null'));
+    if (!summary) return;
+    navigator.clipboard.writeText(summary).then(() => {
+      const btn = $('copy-btn');
+      if (!btn) return;
+      const orig = btn.textContent;
+      btn.textContent = 'Copied';
+      setTimeout(() => { btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="display:inline-block;vertical-align:-2px;flex-shrink:0"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy trip summary`; }, 2000);
+    }).catch(() => {});
+  });
+
+  $('whatsapp-btn')?.addEventListener('click', () => {
+    const summary = buildTripSummary(_data, JSON.parse(localStorage.getItem(LS_SEARCH) || 'null'));
+    if (!summary) return;
+    const url = `https://wa.me/?text=${encodeURIComponent(summary)}`;
+    window.open(url, '_blank', 'noopener');
+  });
 
   // ── Hamburger menu ──────────────────────────────────────
   const btnMenu  = $('btn-menu');
