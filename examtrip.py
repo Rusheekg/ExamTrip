@@ -49,6 +49,9 @@ class StayResult(TypedDict):
     distance_km: float
     link: str
     route: RouteInfo | None
+    thumbnail: str | None
+    latitude: float
+    longitude: float
 
 
 class FoodResult(TypedDict):
@@ -286,6 +289,9 @@ def search_stays(
 
         dist_km = haversine(centre["latitude"], centre["longitude"], lat, lon)
 
+        images = prop.get("images") or []
+        thumbnail = images[0].get("thumbnail") if images else None
+
         entry = StayResult(
             name=prop.get("name", ""),
             price_inr=float(price_raw),
@@ -294,6 +300,9 @@ def search_stays(
             distance_km=round(dist_km, 2),
             link=prop.get("link", ""),
             route=None,
+            thumbnail=thumbnail,
+            latitude=lat,
+            longitude=lon,
         )
         # Stash raw coords for route lookup (not part of the public schema)
         entry["_lat"] = lat   # type: ignore[typeddict-unknown-key]
