@@ -1,12 +1,314 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>ExamTrip</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ExamTrip – Plan Your Exam Journey</title>
+
+  <!-- Inter font -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+  <!-- Tailwind (utility helpers, not replacing our own CSS) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <!-- Leaflet -->
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin>
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" crossorigin></script>
+
+  <!-- Lucide icons -->
+  <script src="https://unpkg.com/lucide@latest/dist/umd/lucide.js"></script>
+
+  <!-- Our styles -->
+  <link rel="stylesheet" href="styles.css">
 </head>
 <body>
-  <h1>ExamTrip</h1>
-  <p>API is running. Use <code>POST /api/plan</code> to plan a trip.</p>
+
+<!-- ── Nav ── -->
+<nav id="navbar" role="navigation" aria-label="Main navigation">
+  <div class="nav-inner">
+    <a class="nav-logo" href="#">
+      <!-- map-pin + graduation-cap composed inline -->
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="#60A5FA" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"/><circle cx="12" cy="10" r="3"/>
+      </svg>
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#A5F3FC" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style="margin-left:-4px">
+        <path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c3 3 9 3 12 0v-5"/>
+      </svg>
+      ExamTrip
+    </a>
+    <ul class="nav-links" role="list">
+      <li><a href="#search">Search</a></li>
+      <li><a href="#results">Results</a></li>
+    </ul>
+    <button class="btn-plan" data-scroll="search" aria-label="Plan my trip – scroll to search">Plan My Trip</button>
+  </div>
+</nav>
+
+<!-- ── Hero ── -->
+<section id="hero" aria-labelledby="hero-headline">
+  <h1 class="hero-headline" id="hero-headline">Your Exam Journey, Planned Smarter.</h1>
+  <p class="hero-sub">Find your stay. Plan your route. Reach your exam on time.</p>
+  <div class="hero-chips" role="list">
+    <div class="hero-chip" role="listitem">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></svg>
+      Budget stays near your centre
+    </div>
+    <div class="hero-chip" role="listitem">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      Leave-by time with a 30-minute buffer
+    </div>
+    <div class="hero-chip" role="listitem">
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+      Exam-day checklist
+    </div>
+  </div>
+</section>
+
+<!-- ── Search card ── -->
+<section id="search" aria-labelledby="search-heading">
+  <div class="search-card">
+    <h2 id="search-heading">Find My Exam Trip</h2>
+    <form id="search-form" novalidate>
+      <div class="form-grid">
+        <div class="field span2">
+          <label for="f-centre">Exam centre address</label>
+          <input id="f-centre" type="text" name="centre_address"
+            placeholder="e.g. IIT Delhi, Hauz Khas, New Delhi"
+            autocomplete="street-address" required>
+          <span class="field-error" id="e-centre" role="alert"></span>
+        </div>
+        <div class="field">
+          <label for="f-city">City</label>
+          <input id="f-city" type="text" name="city"
+            placeholder="e.g. New Delhi"
+            autocomplete="address-level2" required>
+          <span class="field-error" id="e-city" role="alert"></span>
+        </div>
+        <div class="field">
+          <label for="f-date">Exam date</label>
+          <input id="f-date" type="date" name="exam_date" required>
+          <span class="field-error" id="e-date" role="alert"></span>
+        </div>
+        <div class="field">
+          <label for="f-time">Reporting time (24-hour)</label>
+          <input id="f-time" type="time" name="reporting_time" placeholder="08:30" required>
+          <span class="field-error" id="e-time" role="alert"></span>
+        </div>
+        <div class="field">
+          <label for="f-people">Travellers</label>
+          <input id="f-people" type="number" name="people"
+            min="1" max="20" placeholder="1" required>
+          <span class="field-error" id="e-people" role="alert"></span>
+        </div>
+        <div class="field">
+          <label for="f-budget">Max budget per night (₹)</label>
+          <input id="f-budget" type="number" name="max_budget"
+            min="1" placeholder="2500" required>
+          <span class="field-error" id="e-budget" role="alert"></span>
+        </div>
+      </div>
+
+      <div id="search-alert" class="alert" role="alert" aria-live="assertive"></div>
+
+      <button id="search-btn" class="btn-search" type="submit">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        Find My Exam Trip
+      </button>
+    </form>
+  </div>
+</section>
+
+<!-- ── Results ── -->
+<section id="results" aria-labelledby="results-heading" aria-live="polite">
+  <h2 id="results-heading" class="sr-only">Trip Results</h2>
+
+  <!-- Summary bar -->
+  <div id="summary-bar" class="summary-bar" aria-label="Trip summary"></div>
+
+  <!-- Metric cards -->
+  <div class="metrics" role="list">
+    <div class="metric-card" role="listitem">
+      <div class="metric-label">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z"/><path d="M12 6v6l4 2"/></svg>
+        Best pick price
+      </div>
+      <div class="metric-value" id="m-price">—</div>
+      <div class="metric-sub" id="m-price-sub"></div>
+    </div>
+    <div class="metric-card" role="listitem">
+      <div class="metric-label">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="1" y="3" width="15" height="13"/><polygon points="16 8 20 8 23 11 23 16 16 16 16 8"/><circle cx="5.5" cy="18.5" r="2.5"/><circle cx="18.5" cy="18.5" r="2.5"/></svg>
+        Drive Time
+      </div>
+      <div class="metric-value" id="m-drive">—</div>
+      <div class="metric-sub" id="m-drive-sub"></div>
+    </div>
+    <div class="metric-card" role="listitem">
+      <div class="metric-label">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Leave By
+      </div>
+      <div class="metric-value" id="m-leave">—</div>
+      <div class="metric-sub" id="m-leave-sub"></div>
+    </div>
+    <div class="metric-card" role="listitem">
+      <div class="metric-label">
+        <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="1" x2="12" y2="23"/><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"/></svg>
+        Estimated trip cost
+      </div>
+      <div class="metric-value" id="m-trip">—</div>
+      <div class="metric-sub" id="m-trip-sub"></div>
+    </div>
+  </div>
+
+  <!-- Tabs -->
+  <div class="tabs-nav" role="tablist" aria-label="Results sections">
+    <button class="tab-btn active" role="tab" aria-selected="true"  aria-controls="tab-overview"    data-tab="overview">Overview</button>
+    <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-stays"       data-tab="stays">Stays</button>
+    <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-route"       data-tab="route">Route</button>
+    <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-food"        data-tab="food">Food</button>
+    <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-essentials"  data-tab="essentials">Essentials</button>
+    <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-budget"      data-tab="budget">Budget</button>
+    <button class="tab-btn"        role="tab" aria-selected="false" aria-controls="tab-checklist"   data-tab="checklist">Checklist</button>
+  </div>
+
+  <!-- Overview -->
+  <div id="tab-overview" class="tab-panel active" role="tabpanel" aria-label="Overview">
+    <div id="best-pick-card" class="best-card" aria-label="Best pick hotel"></div>
+    <div id="map" aria-label="Map showing exam centre and nearby stays"></div>
+  </div>
+
+  <!-- Stays -->
+  <div id="tab-stays" class="tab-panel" role="tabpanel" aria-label="Stays">
+    <div class="stays-controls">
+      <div style="display:flex;align-items:center;gap:6px;">
+        <label for="sort-by">Sort by:</label>
+        <select id="sort-by" aria-label="Sort stays by">
+          <option value="drive">Drive time</option>
+          <option value="price">Price</option>
+          <option value="rating">Rating</option>
+        </select>
+      </div>
+      <div style="display:flex;align-items:center;gap:6px;">
+        <label for="filter-price">Max price (₹):</label>
+        <input id="filter-price" type="number" min="0" placeholder="All" aria-label="Filter by maximum price per night" style="width:100px;">
+      </div>
+    </div>
+    <div id="stays-grid" class="stays-grid" aria-label="Stay options"></div>
+  </div>
+
+  <!-- Route -->
+  <div id="tab-route" class="tab-panel" role="tabpanel" aria-label="Route">
+    <div id="route-content"></div>
+  </div>
+
+  <!-- Food -->
+  <div id="tab-food" class="tab-panel" role="tabpanel" aria-label="Food">
+    <div class="list-section">
+      <h3>Nearby Restaurants</h3>
+      <div id="food-list" class="place-list"></div>
+    </div>
+  </div>
+
+  <!-- Essentials -->
+  <div id="tab-essentials" class="tab-panel" role="tabpanel" aria-label="Essentials">
+    <div class="list-section">
+      <h3 style="display:flex;align-items:center;gap:6px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect x="6" y="14" width="12" height="8"/></svg>
+        Print Shops
+      </h3>
+      <div id="print-list" class="place-list"></div>
+    </div>
+    <div class="list-section">
+      <h3 style="display:flex;align-items:center;gap:6px;">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 2a2 2 0 0 0-2 2v5H4a2 2 0 0 0-2 2v3c0 1.1.9 2 2 2h3v3a2 2 0 0 0 2 2h2a2 2 0 0 0 2-2v-3h3a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2h-5V4a2 2 0 0 0-2-2h-2z"/></svg>
+        Pharmacies
+      </h3>
+      <div id="pharmacy-list" class="place-list"></div>
+    </div>
+  </div>
+
+  <!-- Budget -->
+  <div id="tab-budget" class="tab-panel" role="tabpanel" aria-label="Budget planner">
+    <div class="budget-grid">
+      <div class="field">
+        <label for="b-nights">Nights</label>
+        <input id="b-nights" type="number" min="1" max="30" value="1" aria-label="Number of nights">
+      </div>
+      <div class="field">
+        <label for="b-food">Food per person/day (₹) <em style="font-style:italic;font-weight:400;color:var(--muted)">(est.)</em></label>
+        <input id="b-food" type="number" min="0" value="300" aria-label="Estimated food cost per person per day in rupees">
+      </div>
+      <div class="field">
+        <label for="b-transport">Local transport/day (₹) <em style="font-style:italic;font-weight:400;color:var(--muted)">(est.)</em></label>
+        <input id="b-transport" type="number" min="0" value="200" aria-label="Estimated local transport cost per day in rupees">
+      </div>
+      <div class="field">
+        <label for="b-other">Other expenses (₹) <em style="font-style:italic;font-weight:400;color:var(--muted)">(est.)</em></label>
+        <input id="b-other" type="number" min="0" value="0" aria-label="Other estimated expenses in rupees">
+      </div>
+      <div class="field">
+        <label for="b-maxbudget">Your total budget (₹)</label>
+        <input id="b-maxbudget" type="number" min="0" aria-label="Your maximum total budget in rupees">
+      </div>
+    </div>
+
+    <div class="budget-breakdown">
+      <h3>Breakdown</h3>
+      <div class="budget-row">
+        <span id="b-stay-label">Stay</span>
+        <span id="b-stay-cost">₹0</span>
+      </div>
+      <div class="budget-row">
+        <span id="b-food-label">Food</span>
+        <span id="b-food-cost">₹0</span>
+      </div>
+      <div class="budget-row">
+        <span id="b-trans-label">Local transport</span>
+        <span id="b-trans-cost">₹0</span>
+      </div>
+      <div class="budget-row">
+        <span>Other expenses <em style="font-size:11px;color:var(--muted)">(est.)</em></span>
+        <span id="b-other-cost">₹0</span>
+      </div>
+      <div class="budget-total" aria-live="polite">
+        <span>Total</span>
+        <span id="b-total">₹0</span>
+      </div>
+      <div class="budget-per" id="b-per-person" aria-live="polite"></div>
+
+      <div class="progress-wrap" aria-label="Budget usage">
+        <div class="progress-label">
+          <span id="b-progress-label-used"></span>
+          <span id="b-progress-label-max"></span>
+        </div>
+        <div class="progress-bar-bg" role="progressbar" aria-valuemin="0" aria-valuemax="100">
+          <div class="progress-bar" id="b-progress" style="width:0%"></div>
+        </div>
+      </div>
+      <p class="estimate-note">Values marked "est." are your estimates. Only the stay price comes from live hotel data.</p>
+    </div>
+  </div>
+
+  <!-- Checklist -->
+  <div id="tab-checklist" class="tab-panel" role="tabpanel" aria-label="Exam day checklist">
+    <div id="checklist-content"></div>
+  </div>
+
+</section>
+
+<!-- ── Footer ── -->
+<footer>
+  <p>Live data from SerpApi: Google Maps, Google Hotels, and Google Maps Directions.</p>
+  <p style="margin-top:6px;">
+    &copy; <script>document.write(new Date().getFullYear())</script> ExamTrip
+  </p>
+</footer>
+
+<!-- App script -->
+<script src="app.js"></script>
+
 </body>
 </html>
