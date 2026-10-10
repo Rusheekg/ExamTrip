@@ -231,6 +231,12 @@ async function runSearch(payload) {
     localStorage.setItem(LS_SEARCH, JSON.stringify(payload));
     localStorage.setItem(LS_RESULT, JSON.stringify(json));
     renderResults(json, payload);
+    // Success toast — show briefly then hide
+    const toastEl = $('search-success');
+    if (toastEl) {
+      toastEl.classList.add('visible');
+      setTimeout(() => toastEl.classList.remove('visible'), 4000);
+    }
   } catch (err) {
     alertEl.innerHTML = `
       <span>⚠</span>
@@ -249,6 +255,10 @@ async function runSearch(payload) {
 function renderResults(data, payload) {
   const resultsEl = $('results');
   resultsEl.classList.add('visible');
+
+  // Show "Results" nav link now that we have results
+  const navResultsItem = $('nav-results-item');
+  if (navResultsItem) navResultsItem.style.display = '';
 
   renderTripPass(data, payload);
   renderJourneyStrip(data, payload);
@@ -1014,6 +1024,34 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   $('print-btn')?.addEventListener('click', () => window.print());
+
+  // ── Hamburger menu ──────────────────────────────────────
+  const btnMenu  = $('btn-menu');
+  const navLinks = $('nav-links');
+  if (btnMenu && navLinks) {
+    btnMenu.addEventListener('click', () => {
+      const isOpen = navLinks.classList.toggle('open');
+      btnMenu.setAttribute('aria-expanded', String(isOpen));
+      btnMenu.setAttribute('aria-label', isOpen ? 'Close navigation menu' : 'Open navigation menu');
+    });
+    // Close menu when a link is chosen
+    navLinks.querySelectorAll('a').forEach(link => {
+      link.addEventListener('click', () => {
+        navLinks.classList.remove('open');
+        btnMenu.setAttribute('aria-expanded', 'false');
+        btnMenu.setAttribute('aria-label', 'Open navigation menu');
+      });
+    });
+    // Close menu on Escape
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && navLinks.classList.contains('open')) {
+        navLinks.classList.remove('open');
+        btnMenu.setAttribute('aria-expanded', 'false');
+        btnMenu.setAttribute('aria-label', 'Open navigation menu');
+        btnMenu.focus();
+      }
+    });
+  }
 
   restoreFromStorage();
 });

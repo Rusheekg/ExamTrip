@@ -11,6 +11,7 @@
   --saffron:   #F59E0B;
   --saffron-l: #FEF3C7;
   --bg:        #F7F9FC;
+  --surface:   #F7F9FC;   /* alias used by inline styles */
   --card:      #FFFFFF;
   --text:      #1F2937;
   --muted:     #64748B;
@@ -23,6 +24,35 @@
   --shadow-md: 0 4px 16px rgba(23,43,77,.10);
   --shadow-lg: 0 8px 32px rgba(23,43,77,.12);
 }
+
+/* ── Accessibility utility ───────────────────────────────── */
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0,0,0,0);
+  white-space: nowrap;
+  border: 0;
+}
+
+/* ── Success toast ───────────────────────────────────────── */
+.toast-success {
+  display: none;
+  align-items: center;
+  gap: 8px;
+  background: #f0fdf4;
+  border: 1px solid #86efac;
+  color: #166534;
+  border-radius: var(--r-sm);
+  padding: 10px 16px;
+  font-size: 14px;
+  font-weight: 600;
+  margin-bottom: 16px;
+}
+.toast-success.visible { display: flex; }
 
 /* ── Reset ───────────────────────────────────────────────── */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -75,7 +105,9 @@ img { display: block; max-width: 100%; }
   color: #fff;
   letter-spacing: -.4px;
   flex-shrink: 0;
+  text-decoration: none;
 }
+.nav-logo:hover { text-decoration: none; color: #fff; }
 .nav-logo svg { flex-shrink: 0; }
 .nav-links {
   display: flex;
@@ -90,6 +122,22 @@ img { display: block; max-width: 100%; }
   transition: color .15s;
 }
 .nav-links a:hover { color: #fff; text-decoration: none; }
+/* Hamburger menu button — hidden on desktop */
+.btn-menu {
+  display: none;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: none;
+  border: 1.5px solid rgba(255,255,255,.3);
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  color: #fff;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+.btn-menu:hover { border-color: rgba(255,255,255,.7); }
 .btn-nav {
   background: var(--primary);
   color: #fff;
@@ -1139,21 +1187,54 @@ footer a:hover { color: #fff; }
 /* ══════════════════════════════════════════════════════════
    RESPONSIVE
 ══════════════════════════════════════════════════════════ */
+
+/* Tablet / narrow desktop */
 @media (max-width: 860px) {
   .hero-inner { grid-template-columns: 1fr; }
   .hero-illustration { display: none; }
   .hiw-steps { grid-template-columns: 1fr; }
   .hiw-step::after { display: none; }
-  .pass-mid { min-width: 160px; }
   .trip-pass { flex-direction: column; }
-  .pass-mid { border-left: none; border-right: none; border-top: 2px dashed var(--border); border-bottom: 2px dashed var(--border); }
+  .pass-mid { min-width: 0; border-left: none; border-right: none; border-top: 2px dashed var(--border); border-bottom: 2px dashed var(--border); }
   .pass-stub { border-radius: 0 0 var(--r) var(--r); }
   .pass-edit-btn { position: static; margin-top: 10px; align-self: flex-start; }
   .journey-row { flex-direction: column; align-items: flex-start; gap: 12px; }
   .journey-line { width: 100%; flex-direction: row; padding: 0; }
+  .journey-pin .jp-label { max-width: none; text-align: left; }
+  .journey-pin .jp-sub   { text-align: left; }
 }
+
+/* Mobile — 768 px and below */
+@media (max-width: 768px) {
+  /* Show hamburger, hide nav-links by default */
+  .btn-menu { display: flex; }
+  .btn-nav  { display: none; }
+  .nav-links {
+    display: none;
+    position: absolute;
+    top: 62px;
+    left: 0;
+    right: 0;
+    background: var(--navy);
+    flex-direction: column;
+    gap: 0;
+    padding: 8px 0 12px;
+    box-shadow: 0 4px 16px rgba(0,0,0,.22);
+    z-index: 199;
+  }
+  .nav-links.open { display: flex; }
+  .nav-links li { width: 100%; }
+  .nav-links a {
+    display: block;
+    padding: 12px 24px;
+    font-size: 15px;
+  }
+  /* Make navbar the containing block for the absolute dropdown */
+  #navbar { position: relative; }
+}
+
+/* Small mobile — 600 px and below */
 @media (max-width: 600px) {
-  .nav-links { display: none; }
   .form-grid { grid-template-columns: 1fr; }
   .field.span2 { grid-column: span 1; }
   .best-card { flex-direction: column; }
@@ -1161,4 +1242,9 @@ footer a:hover { color: #fff; }
   .metrics { grid-template-columns: 1fr 1fr; }
   .stays-grid { grid-template-columns: 1fr; }
   .pass-mid { flex-direction: row; flex-wrap: wrap; gap: 14px; }
+  /* Ensure no overflow at 360px */
+  .route-row { gap: 8px 16px; }
+  .journey-strip { padding: 16px; }
+  .pass-main, .pass-mid, .pass-stub { padding: 14px 16px; }
+  .pass-centre-name { font-size: 15px; }
 }

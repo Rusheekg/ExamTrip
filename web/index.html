@@ -3,19 +3,16 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ExamTrip – Plan Your Exam Journey</title>
-  <meta name="description" content="Find budget stays near your exam centre, plan your route, and arrive on time. Powered by live data from SerpApi.">
+  <title>ExamTrip - Plan your stay and travel for exam day</title>
+  <meta name="description" content="Find budget hotels near your exam centre, get door-to-door drive times, a leave-by alarm, and a timed exam-day checklist — all in one search.">
 
-  <!-- Inline SVG favicon: map-pin with graduation cap -->
+  <!-- SVG favicon: map-pin with graduation cap -->
   <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><path d='M16 2C10.48 2 6 6.48 6 12c0 7 10 18 10 18S26 19 26 12c0-5.52-4.48-10-10-10z' fill='%232563EB'/><circle cx='16' cy='12' r='4' fill='white'/><path d='M10 8l6-3 6 3-6 3z' fill='%23F59E0B'/></svg>">
 
   <!-- Fonts: Plus Jakarta Sans (headings) + Inter (body) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@600;700;800&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
-
-  <!-- Tailwind (sr-only utility) -->
-  <script src="https://cdn.tailwindcss.com"></script>
 
   <!-- Leaflet -->
   <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" crossorigin>
@@ -24,7 +21,7 @@
   <!-- Styles -->
   <link rel="stylesheet" href="styles.css">
 
-  <!-- Spinner keyframe (needed for loading SVG) -->
+  <!-- Spinner keyframe -->
   <style>
     @keyframes spin { to { transform: rotate(360deg); } }
   </style>
@@ -36,10 +33,9 @@
 ══════════════════════════════════════════════════════════ -->
 <nav id="navbar" role="navigation" aria-label="Main navigation">
   <div class="nav-inner">
-    <!-- Logo: inline SVG map-pin + graduation cap -->
-    <a class="nav-logo" href="#" aria-label="ExamTrip home">
+    <!-- Logo: scrolls to top -->
+    <a class="nav-logo" href="#top" aria-label="ExamTrip – back to top">
       <svg width="26" height="26" viewBox="0 0 32 32" fill="none" aria-hidden="true">
-        <title>ExamTrip logo</title>
         <path d="M16 2C10.48 2 6 6.48 6 12c0 7 10 18 10 18S26 19 26 12c0-5.52-4.48-10-10-10z" fill="#60A5FA"/>
         <circle cx="16" cy="12" r="3.5" fill="white"/>
         <path d="M10 8.5l6-3 6 3-6 3z" fill="#F59E0B"/>
@@ -47,13 +43,20 @@
       </svg>
       ExamTrip
     </a>
-    <ul class="nav-links" role="list">
+    <ul class="nav-links" id="nav-links" role="list">
       <li><a href="#search">Search</a></li>
       <li><a href="#how-it-works">How it works</a></li>
-      <li><a href="#results">Results</a></li>
+      <li id="nav-results-item" style="display:none"><a href="#results">Results</a></li>
     </ul>
     <button class="btn-nav" data-scroll="search" aria-label="Plan my trip – scroll to search form">
       Plan My Trip
+    </button>
+    <button class="btn-menu" id="btn-menu" aria-label="Open navigation menu" aria-expanded="false" aria-controls="nav-links">
+      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
+        <line x1="3" y1="6"  x2="21" y2="6"/>
+        <line x1="3" y1="12" x2="21" y2="12"/>
+        <line x1="3" y1="18" x2="21" y2="18"/>
+      </svg>
     </button>
   </div>
 </nav>
@@ -322,7 +325,7 @@
      HOW IT WORKS
 ══════════════════════════════════════════════════════════ -->
 <section id="how-it-works" aria-labelledby="hiw-heading">
-  <p class="hiw-heading" id="hiw-heading">How ExamTrip works</p>
+  <h2 class="hiw-heading" id="hiw-heading">How ExamTrip works</h2>
   <div class="hiw-steps">
 
     <!-- Step 1 -->
@@ -402,6 +405,12 @@
 ══════════════════════════════════════════════════════════ -->
 <section id="results" aria-labelledby="results-heading" aria-live="polite" style="margin-top:48px;">
   <h2 id="results-heading" class="sr-only">Trip Results</h2>
+
+  <!-- Success toast -->
+  <div id="search-success" class="toast-success" role="status" aria-live="polite">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 6 9 17 4 12"/></svg>
+    Your trip plan is ready.
+  </div>
 
   <!-- Trip Pass -->
   <div id="trip-pass" class="trip-pass" aria-label="Trip summary card"></div>
@@ -740,7 +749,7 @@
   <div class="footer-inner">
     <div class="footer-tagline">Plan smarter. Spend wisely. Arrive on time.</div>
     <p>Live data from SerpApi: Google Maps, Google Hotels, and Google Maps Directions.</p>
-    <p style="margin-top:4px">&copy; <script>document.write(new Date().getFullYear())</script> ExamTrip</p>
+    <p style="margin-top:4px">&copy; 2025 ExamTrip</p>
   </div>
 </footer>
 
